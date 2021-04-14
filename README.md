@@ -1,3 +1,5 @@
-# Bulk RNA-Seq Workflows
-This repository contains workflows for performing bulk RNA-Seq analysis.
+# RNA-Seq Workflow
+A workflow for RNA-Seq analysis comparing treatment and control.
+
+Find it in the [Wiki](https://github.com/ludmercentre/rna-seq_workflow/wiki).
 
