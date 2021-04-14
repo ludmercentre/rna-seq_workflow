@@ -1,3 +1,4 @@
+# Study Design
 It is important to determine a study design upfront.
 
 Here are some guidelines to do so:
