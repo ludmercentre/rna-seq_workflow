@@ -84,6 +84,7 @@ Difference in alignment and read distribution.
 ## 8. Multiplexing and Batch Effect:
 * Multiplexing is an approach to sequence multiple samples in the same sequencing lane. By sequencing all samples in the same lane, multiplexing can also minimise bias from lane effects.
 
+___
 
 [^1]: Melbourne Bioinformatics. (2017). RNA-Seq Experimental Design. https://www.melbournebioinformatics.org.au/tutorials/tutorials/rna_seq_exp_design/rna_seq_experimental_design/
 [^2]: Schurch, N. J., Schofield, P., Gierliński, M., Cole, C., Sherstnev, A., Singh, V., ... & Barton, G. J. (2016). How many biological replicates are needed in an RNA-seq experiment and which differential expression tool should you use?. Rna, 22(6), 839-851.
