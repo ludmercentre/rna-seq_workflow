@@ -28,3 +28,14 @@ The output will consist of only one html file and will be located in the **multi
 
 Sometimes there are information contained in the read file name, in this case it contains the company NEB (New England Biolabs) and the fact that the read are paired-end. R1 means this is the first of the two pairs. See the [Study Design](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/study_design.html) page.
 
+## 1.3 Assessing the results. 
+
+Before continuing with the pipeline it is important to use these first QC results to understand how good the metrics are in our experiment and if any further investigations into the data or the experimental protocol is required. FastQC contains multiple sections in it's results which it will flag in red or yellow if it detects something seems off the norm. This can actually be expected depending on what experiment is being run. FastQC's checks are built for a very standard experiment, but all experiment are unique. MultiQC is very good at providing a bird's eye view of the fastQC results for all samples. This is very helpful to check wether the same issues of flags are raised in the other samples or only a single one or a few.
+
+Two excellent resources to consult when assessing FastQC results is the [fastQC documentation](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) and the [QCFail blog](https://sequencing.qcfail.com/), run by the folks at the The Babraham Institute in Cambridge, the team that actually developed FastQC. Of course, a google search and most notably the [SEQanswers](http://seqanswers.com/) and the [Biostars](https://www.biostars.org/) online communities are also a great help.
+
+Let's go through the flags return in our example real-life FastQC [results](https://ludmercentre.github.io/rna-seq_workflow/data_files/fastqc_output/raw_data/NS.1223.004.NEBNext_dual_i7_A1---NEBNext_dual_i5_A1.03_32_vHIP_R1_fastqc.html).
+
+The following three sections were flagged:
+
+![Per Base Sequence Content](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/per_base_sequence_content_fastqc_results.png)
