@@ -1,5 +1,3 @@
-# Glossary
-
 **Library Size:** 
 
 The RNA that was sequenced is called the RNA library.  With longer read lengths and more accurate sequencing, these days in most organisms, most of the reads are mapped. 
@@ -18,3 +16,7 @@ A Phred Quality Score above 30 signifies that the probability of an incorrect ba
 | 40    | 1 in 10,000  | 99.99%|
 | 50    | 1 in 100,000 | 99.999% |
 | 60    | 1 in 1,000,000 | 99.9999% |
+
+**Random Library Primers:**
+
+Used to prime mRNAs with or without poly(A) for cDNA synthesis. Adapters are for the PCR step for sequencing. ([source](https://www.thermofisher.com/order/catalog/product/48190011#/48190011))

@@ -1,10 +1,10 @@
 The pre-processing steps starts with raw sequencing data (usually in fastq.gz format)
 
-## 1. Pre-Alignment Quality Control (QC):
+## 1. Pre-Alignment Quality Control (QC)
 
 Multiple programs can be used to perform quality control. Here we will use [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) and [MultiQC](https://multiqc.info/docs/).
 
-### 1.1. FastQC:
+### 1.1. FastQC
 
 Run the program on the raw read files to return a QC report. 
 
@@ -16,7 +16,7 @@ Here the raw data is located in the **raw_data/** folder and the output (one for
 
 Sometimes there are information contained in the read file name, in this case it contains the company NEB (New England Biolabs) and the fact that the read are paired-end. R1 means this is the first of the two pairs. See the [Study Design](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/study_design.html) page.
 
-### 1.1. MultiQC:
+### 1.1. MultiQC
 
 Run the program from anywhere within your project folder. MultiQC will automatically recognize file extensions and organize its report with the right files in each section.
 
@@ -28,7 +28,7 @@ The output will consist of only one html file and will be located in the **multi
 
 Sometimes there are information contained in the read file name, in this case it contains the company NEB (New England Biolabs) and the fact that the read are paired-end. R1 means this is the first of the two pairs. See the [Study Design](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/study_design.html) page.
 
-## 1.3 Assessing the results. 
+## 1.3 Assessing the results
 
 Before continuing with the pipeline it is important to use these first QC results to understand how good the metrics are in our experiment and if any further investigations into the data or the experimental protocol is required. FastQC contains multiple sections in it's results which it will flag in red or yellow if it detects something seems off the norm. This can actually be expected depending on what experiment is being run. FastQC's checks are built for a very standard experiment, but all experiment are unique. MultiQC is very good at providing a bird's eye view of the fastQC results for all samples. This is very helpful to check wether the same issues of flags are raised in the other samples or only a single one or a few.
 
@@ -38,4 +38,13 @@ Let's go through the flags return in our example real-life FastQC [results](http
 
 The following three sections were flagged:
 
-![Per Base Sequence Content](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/per_base_sequence_content_fastqc_results.png)
+### 1.3.1 Per Base Sequence Content 
+![Per Base Sequence Content](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/per_base_sequence_content_fastqc_results.png)
+
+In theory, all reads from a sequencing sample should contain approximately the same ratio of the 4 bases across their sequence. FastQC is designed to flag samples in which this is not the case. Here we see that the first 10-12 bases in the reads from this sample fail to respect this assumption. A search on the web quickly points to this Biostars [discussion](https://www.biostars.org/p/179565/#179569) linking to this QCFail [blog post](https://sequencing.qcfail.com/articles/positional-sequence-bias-in-random-primed-libraries/) by Dr. Simon Andrews, which reassure and explains the cause of this bias as being caused by the the random priming step in library production. (See random primers in the [Glossary](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/glossary.html))
+
+### 1.3.2 Per Sequence GC Content. 
+![Per Base Sequence Content](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/per_sequence_gc_content_fastqc_results.png)
+
+### 1.3.3 Sequence Duplication Levels 
+![Per Base Sequence Content](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/sequence_duplication_levels_fastqc_results.png)
