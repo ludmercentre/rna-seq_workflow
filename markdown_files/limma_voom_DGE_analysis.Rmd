@@ -1,0 +1,437 @@
+---
+title: "MIA RNA-Seq Pipeline Report"
+author: "Pedro and Amadou"
+date: "3/6/2020"
+output: pdf_document
+header-includes:
+   - \usepackage[justification=raggedright,labelfont=bf,singlelinecheck=false]{caption}
+---
+
+```{r setup, message=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'p') # Places figures on their own pages
+knitr::opts_chunk$set(out.width = '100%', dpi=300)
+# I usually load my libraries up front to keep things organized
+library(bookdown)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(ggthemes)
+library(ggExtra)
+library(dplyr)
+library(tidyr)
+library(stringr)
+
+# New package Bioconductor
+library(limma)
+library(Glimma)
+library(edgeR)
+library(statmod)
+library(RColorBrewer)
+```
+
+# Introduction
+
+This report presents the RNA-Seq differential expression analysis performed with the limma-voom pipeline from Bioconductor’s limma package.
+
+The data used for this analysis is from a study seeking to examine the long term effects of exposure to maternal immune activation in mice. Here is a brief study outline:
+
+We used MRI to measure trajectories of brain development at weaning, adolescence, early adulthood, and adulthood, and paired that with behavioural assessments in adolescence and later adulthood (anxiety, social, stereotypic behaviours, and sensorimotor gating). We found that our largest deviations in brain trajectory and behaviour occurred in the adolescent/early adult period, and resolved by later adulthood. 
+In order to better understand these changes, we performed a multivariate analysis to determine regions that could explain behavioural alterations in our groups. We used this analysis to choose our regions of interest, which were the anterior cingulate cortex (ACC), the dorsal (dHIP), and ventral hippocampus (vHIP). 
+We took punches of these 3 regions in adolescent (PND35) males (6 per group) and females (6 per group) either prenatally exposed to maternal immune activation (using a viral mimetic, Poly IC, POL), or a vehicle control (saline, SAL) at gestational day 9. This timepoint corresponds with the behavioural and MRI assessments detailed above.
+We are interested in comparing RNA expression in 3 regions of interest following exposure to maternal immune activation (compared to vehicle control), in both male and female adolescent mouse offspring.
+
+**The main interest is to know whether there is differential expression between POL vs SAL, and it would be interesting to know if this was brain region dependent.**
+
+We will run a Multi-level experiment design mainly based on Chapter 18 of the [limma package user guide](https://www.bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf) (Smyth et al., 2019) as well as the [RNA-seq analysis is easy as 1-2-3 with limma, Glimma and edgeR](https://f1000research.com/articles/5-1408/v3) paper (law et al., 2018).
+
+The Multi-level experiments account for the within correlation (every sample arises 3 times according to the brain region).
+
+## Sample Information:
+* **Sample Origins:** RNA samples come from flash frozen mouse brain tissue in 3 regions of interest.
+* **Sample Preparation:** Promega ReliaPrep tissue RNA miniprep kit.
+* **Quantification Method:** Purely spectrophotometric-based method (e.g, Nanodrop)
+* **Nb Samples:** 72.
+* **Nb Subjects:** 24 (3 rois from each)
+* **Library Type:** Stranded.
+* **Species Reference Genome:** Mus_musculus:GRCm38
+* **Sequencing Type:** Illumina NovaSeq 6000 S4 PE100 (100nts reads, pair-ended with a s4 flow cell). Single lane instrument.
+* **Sequencing depth:** 34 million reads per sample.
+* **Sequencing quality:** All samples average a Phred quality score of 36.
+* **Fragment Library Type:** ISR/F (Identified using the Salmon aligner see [documentation](https://salmon.readthedocs.io/en/latest/library_type.html))
+  * I = inward
+  * S = stranded
+  * R = read comes from the reverse strand
+  * F = read comes from the forward strand
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=5}
+# Import required files:
+
+setwd("C:/Users/pedro/Desktop/ludmer_center_work/rna-seq/MIA/reports/")
+
+# Experimental variables:
+targets <- read.csv('../data/conditions_df.csv')
+
+# STAR gene count output results dataframe:
+star_results_df = read.csv('../data/star_results.csv', row.names=1)
+
+# Biomart gene annotation file http://useast.ensembl.org/biomart/martview/:
+annotations_df = read.csv("../data/mm10_biomart_annotated_genes.csv")
+```
+
+# Pre-processing
+
+We began the preprocessing step by looking at the number of sequenced reads (library sizes) for each sample and we found a lot of variation (Figure 1). We did not find any explanation of this variability which is not theoretically expected. The genome center has been contacted and informed of this situation, they were also surprised and stated they would look into it. 
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=5,fig.pos="H",fig.cap="Per Sample Library Sizes Ordered by Sample RNA Concentration Values"}
+# turn targets$conc. to numerical values, removing ng/ul substring:
+targets$conc. <- as.numeric((gsub("[^0-9.]", "", targets$conc.)))
+
+# transform concentration values to 1,2,3 factors:
+vec <- vector()
+for (i in targets$conc.){
+if (i < 50) {
+vec <- append(vec, "1")
+} else if (i >= 50 & i < 70) {
+vec <- append(vec, "2")
+} else if (i >= 70 & i < 102) {
+vec <- append(vec, "3")
+} else if (i >= 102) {
+vec <- append(vec, "4")
+}}
+
+targets$conc_fact <- factor(vec)
+
+o <- order(factor(targets$conc.))
+
+barplot(as.matrix(t(cbind(targets[o, "mapped_library_size"]*1e-6,
+        targets[o, "unmapped_library_size"]*1e-6))),
+        ylab="Number of Reads (millions)", names = targets$sample_id[o],
+        las=3, cex.names=0.3, cex.axis=0.7, density = c(80,0), pin = c(10, 10), 
+        legend = c("Number of Mapped Reads", "Number of Unmapped Reads"),
+        args.legend = list(x = "topright",cex = 0.5, bty = "n"),
+        # main="Figure 2.1: Per Sample Library Sizes"
+    )
+```
+
+The limma package user guide (Smyth et al., 2019) states the experimental cDNA concentration as possibly having an effect on library sizes. The RNA concentration is a variable which gives the amount of RNA present in the sequencing sample. Meanwhile, Law et al. (2018) included sequencing lanes (batch) information in their analysis pipeline and did detect a batch effect on their expression data. The library sizes in our study vary from over 21 million to over 69 million. This study should be free of batch effect since the sequencing was performed by an Illumina NovaSeq 6000 S4 PE100 machine, which uses a single lane. We plotted samples library sizes ordered by the concentration of the cDNA used for sequencing. We colored according to percentiles of the concentration values (1 is below 25th, 2 below 50th, 3 below 75th and 4 below 100th). We didn’t find a relationship between concentration values and library size (Figure 2)
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=5,fig.pos="H",fig.cap="Per Sample Library Sizes Ordered by Sample RNA Concentration Values and Colored by Concentration Percentile Values"}
+col.concent <- c("cornsilk", "gold" , "orange", "red")
+barplot(targets[o, "mapped_library_size"]*1e-6, names = targets$sample_id[o], ylab="Library size (millions)",
+        col = col.concent[targets$conc_fact][o], las = 2, cex.names = 0.3)
+legend("topleft", legend = c("<=25th","<=50th","<=75th", "<=100th"), col = col.concent, pch = 15, cex = 0.7)
+```
+
+## Annotation and Filtering
+Our initial matrix count has 55421 rows associated with unique ensembl gene identifiers and 72 columns associated with the individual samples (24 subjects and 3 brain regions each). We used the biomaRt package to organise and annotate the genes, 55409 out of the 55421 were successfully annotated. We also used the Mus.musculus package for annotation, but it provided fewer annotated genes, 3236 genes had no annotation values.
+We also checked for duplicated gene IDs and found 2 genes with duplicated annotations: Aldoa ([ENSMUSG00000030695](https://useast.ensembl.org/Mus_musculus/Gene/Summary?g=ENSMUSG00000030695;r=7:126795234-126800751), [ENSMUSG00000114515](https://useast.ensembl.org/Mus_musculus/Gene/Summary?g=ENSMUSG00000114515;r=7:126800790-126809108) ) and St6galnac2 ([ENSMUSG00000057286](https://useast.ensembl.org/Mus_musculus/Gene/Summary?g=ENSMUSG00000057286;r=11:116675303-116694868), [ENSMUSG00000110170](https://useast.ensembl.org/Mus_musculus/Gene/Summary?g=ENSMUSG00000110170;r=11:116677483-116681290;t=ENSMUST00000144398)).
+Although they both have unique ensembl Ids they have the same annotation values.
+
+We next filtered the gene list. We started by removing genes with 0 counts in all samples. From a biological point of view, genes that are not expressed at a biologically meaningful level in any condition are not of interest and are therefore best ignored. From a statistical point of view, removing low count genes allows the mean-variance relationship in the data to be estimated with greater reliability and also reduces the number of statistical tests that need to be carried out in downstream analyses looking at differential expression (Law et al. 2018). There were 13902 genes with 0 count in total and it represented 25% of the gene set.
+We then filtered genes according to their gene_biotype annotation from the ensembl database. Only genes annotated as being protein coding were kept, they amount to 19511 genes and therefore account for 35% of the original gene set.
+We further filtered the remaining genes by their expression values using the [**filterByExpr()**](https://rdrr.io/bioc/edgeR/man/filterByExpr.html) function from the edgeR package (Chen & Smyth, 2016). This filterByExpr() function provides an automatic way to filter genes while keeping as many genes as possible with counts considered worthwhile (Law et al. (2018). The package suggests keeping between 10 and 15 read counts in a minimum number of samples, where the number of samples is chosen according to the **minimum group sample size**. We investigated the rationale behind these default values and did not find a satisfactory answer. In the original manuscript  (Chen et al., 2016) it is written that the default value is chosen as a rule of thumb without any further explanations. We tried both values. The default value of 10 gives 15387 genes, while raising that value to 15 keeps 14965 genes. Note that the results in this report are from using 15 as the min.count parameter value.
+
+The filterByExpr() function works by keeping genes with a **min.count** value in a minimum number of samples. The default min.count value is 10, the number of samples is chosen according to the minimum group sample size provided by the experimental design. The actual filtering uses CPM values rather than counts in order to avoid giving preference to samples with large library sizes. For our dataset, the median library size is about **29 million** reads and we chose to keep **10** as a min.count value, since our analysis has enough replicates (6) to account for potential outliers. Since 10/29 = 0.344, the function keeps genes that have a CPM of **0.344** or more in at least 6 samples. A biologically interesting gene should be expressed in at least six samples because all the cell type groups have six replicates. The cutoffs used depend on the sequencing depth and on the experimental design. If the library sizes had been larger, then a lower CPM cutoff would have been chosen, because larger library sizes provide better resolution to explore more genes at lower expression levels. Alternatively, smaller library sizes
+decrease our ability to explore marginal genes and hence would have led to a higher CPM cutoff.
+Using this criterion, the number of genes is reduced to **15387**, or about **27.76%** of the original 55421 genes. The log-CPM values after filtering show a nearly unimodal distribution for each sample (Figure 3.1B). Note: using 15 as min.count value returns very similar results.
+
+```{r eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8.65,fig.height=5}
+# dataframe with factors:
+targets = data.frame(sample_id = targets$sample_id, subject = substr(targets$sample_id, 1, 5), treat = targets$treatment, sex = targets$sex, roi = targets$region)
+
+
+#### Group
+group = factor(targets$treat)
+
+
+#### DGEList
+# remove.zeros=TRUE gets rid of genes with 0 counts
+dge <- DGEList(counts=star_results_df, group=group, remove.zeros=TRUE)
+
+# add factors to DGEList object
+dge$samples$subject <- targets$subject
+dge$samples$treat <- targets$treat
+dge$samples$sex <- targets$sex
+dge$samples$roi <- targets$roi
+
+#### Annotations
+# Same order as in DGE object gene ids:
+annotations_df <- annotations_df[match(rownames(dge), annotations_df$ensembl_gene_id), ]
+dge$genes <- annotations_df
+
+dge_before_filter <- dge
+
+#### Filtering and Design Matrix
+## Filter out 5 outliers samples:
+# dge <- dge[, which(colnames(dge$counts)!="X01_09_ACC" & colnames(dge$counts)!="X08_09_dHIP")]
+
+
+#### Design Matrix
+group = dge$samples$group
+
+# POLvsSAL
+# design = model.matrix(~ 0 + group, data = dge$samples)
+# # POLvsSAL with roi
+# design = model.matrix(~ 0 + group + roi, data = dge$samples)
+# # POLvsSAL with sex
+# design = model.matrix(~ 0 + group + sex, data = dge$samples)
+# POLvsSAL with roi and sex
+design = model.matrix(~ 0 + group + roi + sex, data = dge$samples)
+
+# colnames(design) = levels(group)
+
+
+#### Filtering
+## Keep protein coding genes only:
+keep <- dge$genes$gene_biotype == 'protein_coding'
+dge <- dge[keep, ]
+
+## Remove Lowly Expressed Genes:
+keep <- filterByExpr(dge, design=design, min.count=10)
+dge <- dge[keep,, keep.lib.sizes=FALSE]
+
+```
+
+## Transformation from raw-scale to cpm and log-cpm
+
+As shown in Figure 1, the sequenced libraries have different length and depth. Hence, it is important to transform the raw counts onto a scale that accounts for such library differences. Law et al. (2018) listed 4 different transformations:  counts per million (CPM) and log2-counts per million (log-CPM), reads per kilobase of transcript per million (RPKM), and fragments per kilobase of transcript per million (FPKM). We followed Law et al. (2018) suggestion and used CPM and log-CPM transformations although they do not account for gene length differences as RPKM and FPKM values do. Because our differential expression analyses look at gene expression changes between conditions rather than comparing expression across multiple genes or drawing conclusions on absolute levels of expression.
+
+The log-CPM transformation will enable us to analyze the read counts data using the normal distribution assumption and to take advantage of the statistical methodology that has been developed for microarray data and implemented in limma package (Law et al. 2014). The Log-cpm values  are related to the CPM values by log2(CPM + 2/L), where 2 is the prior count and L is the average size in millions. This ensures that any two read counts with identical CPM values will also have identical log-CPM values. The prior count (2) avoids taking the logarithm of zero, and also reduces spurious variability for genes with very low counts by shrinking all the inter-sample log-fold-changes towards zero, something that is helpful for exploratory plotting. For this dataset the average library size is about 29 million (29 011 278), so L=29 and the minimum log-CPM value for each sample becomes log_2(2/29)=-3.86. In other words, a count of zero for this data maps to a log-CPM value of -3.86 after adding the prior count or offset.
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=5,fig.pos="H",fig.cap="Density of log-CPM Values for Raw Pre-filtered Data and Post-filtered Data"}
+cpm_before <- cpm(dge_before_filter)
+lcpm_before <- cpm(dge_before_filter, log=TRUE)
+
+L_before <- mean(dge_before_filter$samples$lib.size) * 1e-6
+M_before <- median(dge_before_filter$samples$lib.size) * 1e-6
+
+cpm <- cpm(dge)
+lcpm <- cpm(dge, log=TRUE)
+
+L <- mean(dge$samples$lib.size) * 1e-6
+M <- median(dge$samples$lib.size) * 1e-6
+
+samplenames = rownames(dge$samples)
+
+library(RColorBrewer)
+nsamples <- ncol(dge)
+col <- brewer.pal(nsamples, "Paired")
+
+lcpm_before.cutoff <- log2(10/M_before + 2/L_before)
+par(mfrow=c(1,2))
+
+plot(density(lcpm_before[,1]), col=col[1], lwd=2, ylim=c(0,0.26), las=2, main="", xlab="")
+title(main="A. Raw data", xlab="Log-cpm")
+abline(v=lcpm_before.cutoff, lty=3)
+for (i in 2:nsamples){
+den <- density(lcpm_before[,i])
+lines(den$x, den$y, col=col[i], lwd=2)
+}
+legend("topright", samplenames, text.col=col, bty="n")
+
+lcpm.cutoff <- log2(10/M + 2/L)
+
+plot(density(lcpm[,1]), col=col[1], lwd=2, ylim=c(0,0.26), las=2, main="", xlab="")
+title(main="B. Filtered data", xlab="Log-cpm")
+abline(v=lcpm.cutoff, lty=3)
+for (i in 2:nsamples){
+den <- density(lcpm[,i])
+lines(den$x, den$y, col=col[i], lwd=2)
+}
+legend("topright", samplenames, text.col=col, bty="n")
+
+# title("Figure 4.1 Density of log-CPM values for raw pre-filtered data and post-filtered data", outer=TRUE)
+```
+
+## RNA Composition Bias Normalization (Sample to Sample)
+The second most important technical influence on differential expression is one that is less obvious. RNA-seq provides a measure of the relative abundance of each gene in each RNA sample, but does not provide any measure of the total RNA output on a per-cell basis. This commonly becomes important when a small number of genes are very highly expressed in one sample, but not in another. The highly expressed genes can consume a substantial proportion of the total library size, causing the remaining genes to be under-sampled in that sample. Unless this RNA composition effect is adjusted for, the remaining genes may falsely appear to be down-regulated in that sample (Chen et al., 2019).
+The [**calcNormFactors()**](https://rdrr.io/bioc/edgeR/man/calcNormFactors.html) function normalizes for RNA composition by finding a set of scaling factors for the library sizes that minimize the log-fold changes between the samples for most genes. The default method for computing these scale factors uses a **trimmed mean of M-values (TMM)** between each pair of samples. We call the product of the original library size and the scaling factor the **effective library size**. The effective library size replaces the original library size in all downstream analyses. TMM is recommended for most RNA-Seq data where the majority (more than half) of the genes are believed not differentially expressed between any pair of the samples. (Chen et al., 2019)
+
+The normalisation reduces bias due to external factors that are not of biological interest and ensure that the expression distributions of each sample are similar across the entire experiment. For example, samples processed in the first batch of an experiment can have higher expression overall when compared to samples processed in a second batch. It is assumed that all samples should have a similar range and distribution of expression values. Normalisation is required to ensure that the expression distributions of each sample are similar across the entire experiment. (Law et al., 2018)
+The log-CPM distributions are similar throughout all samples within this dataset. The normalization factors of all the libraries multiply to unity. A normalization factor below one indicates that a small number of high count genes are monopolizing the sequencing, causing the counts for other genes to be lower than would be usual given the library size. As a result, the effective library size will be scaled down for that sample.
+
+For this dataset the effect of TMM-normalisation is mild, as evident in the magnitude of the scaling factors, which are all relatively close to 1 (Figure 4)
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=5,fig.pos="H",fig.cap="Distribution of Per Sample Normalization Factors"}
+# Check for bias in library sizes per group of samples:
+
+# Calculate normalization factors to scale the raw library sizes with TMM method:
+# https://www.rdocumentation.org/packages/edgeR/versions/3.14.0/topics/calcNormFactors
+dge <- calcNormFactors(dge, method = "TMM")
+
+boxplot(dge$samples$norm.factors, horizontal=TRUE)
+vals = round(fivenum(dge$samples$norm.factors), digits=3)
+text(x=vals, labels=vals, y=1.25)
+# title("Figure 5.1 Distribution of Per Sample Normalization Factors")
+```
+
+It is important to note that TMM does not change gene expression counts or library sizes, it merely creates a new column: (samples$norm.factors) of scaling factors to be automatically used downstream in the analysis when applying edgeR or limma functions, e.g.:, edgeR's cpm() function (this is what the edgeR refers to as model normalisation). We can see the effect of the TMM normalization by plot the log-cpm distributions before and after normalization (Figure 5). The distributions are slightly different pre-normalisation and are similar post-normalisation.
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=5,fig.pos="H",fig.cap="Distribution of log-CPM Gene Count Values Before and After Normalization for All Samples"}
+x2 <- dge
+x2$samples$norm.factors <- 1
+
+x2_lcpm <- cpm(x2, log=TRUE)
+
+# all samples:
+par(mfrow=c(1,2))
+
+boxplot(x2_lcpm, las=2, col=col, main="")
+title(main="A. Example: Unnormalised data", ylab="Log-cpm")
+
+boxplot(lcpm, las=2, col=col, main="")
+title(main="B. Example: Normalised data", ylab="Log-cpm")
+```
+
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=11,fig.pos="H",fig.cap="Distribution of log-CPM Gene Count Values Before and After Normalization with Samples Splitted (3x24)"}
+# Split in 3 (24 each)
+par(mfrow=c(3,2))
+
+boxplot(lcpm[, 1:24], las=2, col=col, main="")
+title(main="A1. Example: Unnormalised data", ylab="Log-cpm")
+
+lcpm <- cpm(dge, log=TRUE)
+boxplot(lcpm[, 1:24], las=2, col=col, main="")
+title(main="A2. Example: Normalised data", ylab="Log-cpm")
+
+boxplot(lcpm[, 25:48], las=2, col=col, main="")
+title(main="A3. Example: Unnormalised data", ylab="Log-cpm")
+
+lcpm <- cpm(dge, log=TRUE)
+boxplot(lcpm[, 25:48], las=2, col=col, main="")
+title(main="B1. Example: Normalised data", ylab="Log-cpm")
+
+boxplot(lcpm[, 48:72], las=2, col=col, main="")
+title(main="B2. Example: Unnormalised data", ylab="Log-cpm")
+
+lcpm <- cpm(dge, log=TRUE)
+boxplot(lcpm[, 48:72], las=2, col=col, main="")
+title(main="B3. Example: Normalised data", ylab="Log-cpm")
+```
+
+## Unsupervised Clustering with MDS plots:
+Exploring differences between libraries. The **multi-dimensional scaling (MDS)** plot shows similarities and dissimilarities between samples in an unsupervised manner so that one can have an idea of the extent to which differential expression can be detected before carrying out formal tests. This is both an analysis step and a quality control step to explore the overall differences between the expression profiles of the different samples. Distances on an MDS plot of a DGEList object correspond to leading log-fold-change between each pair of samples. Leading log-fold-change is the root-mean-square average of the largest log2-fold-changes between each pair of samples.
+
+We used the MDS plot to identify potential sample outliers. The first dimension represents the leading-fold change that best separates samples and explains the largest proportion of variation in the data, with subsequent dimensions having a smaller effect and being orthogonal to the ones before it. Since our experimental design involves multiple factors, we examined each factor over several dimensions. **If samples cluster by a given factor in any of these dimensions, it suggests that the factor contributes to expression differences and is worth including in the linear modelling**. On the other hand, factors that show little or no effect may be left out of downstream analysis.
+In this dataset, samples can be seen to cluster well within brain region groups over dimension 1 and 2, and then separate by sex over dimension 5.
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=5,fig.pos="H",fig.cap="MDS Plots of log-CPM Values. (A) Over dimensions 1 and 2 with samples coloured and labeled by roi. (B) Over dimensions 4 and 5 with samples coloured and labeled by sex. Distances on the plot correspond to the leading fold-change, which is the average (root-mean-square) log2-fold-change for the 500 genes most divergent between each pair of samples by default."}
+par(mfrow=c(1,2))
+# ROI (Brain Regions) on dimensions 1 vs. 2:col.group <- dge$samples$roi # gen color group vector
+col.group <- dge$samples$roi # gen color group vector
+levels(col.group) <-  brewer.pal(nlevels(col.group), "Set1") # assign colors as factors
+col.group <- as.character(col.group)
+mds <- plotMDS(dge, labels=dge$samples$roi, col=col.group, dim.plot=c(1,2), main="A. ROI dimensions 1 vs. 2")
+
+# Sex on dimensions 4 vs. 5:
+col.group <- dge$samples$sex # gen color group vector
+levels(col.group) <-  brewer.pal(nlevels(col.group), "Set1") # assign colors as factors
+col.group <- as.character(col.group)
+mds <- plotMDS(dge, labels=dge$samples$sex, col=col.group, dim.plot=c(4,5), main="B. Sex dimensions 4 vs. 5")
+
+# Fancy plot allowing the exploration of all factors and all principal component dimensions:
+html_filename = "all_samples"
+
+# glMDSPlot(dge, labels=dge$samples$group,
+#           groups=dge$samples[, 4:7], launch=TRUE, html=html_filename)
+```
+
+Exquisitely, the **Glimma** package offers the convenience of an interactive MDS plot where multiple dimensions can be explored. It generates an HTML page with an MDS plot in the left panel and a scree plot showing the proportion of variation explained by each dimension in the right panel. Clicking on the bars of the scree plot changes the pair of dimensions plotted in the MDS plot, and hovering over the individual points reveals the sample label. The colour scheme can be changed as well to highlight brain regions (roi), sex or treament vs. control. An interactive MDS plot of this dataset can be found in the **interactive_plots/MDS/glimma_mds_plot/all_samples.html** file.
+
+## Outliers
+
+From observing the MDS plots, especially the interactive one in the (all_samples.html HTML file), there are no visually noticeable outliers when it comes to the first dimension, which clusters for brain region of interest (roi) (Figure 7A). Dimension 5, however, which seems to cluster for sex, does show some potential outliers, most notably the 01_09_ACC, 08_09_ACC, 10_35_ACC and 08_09_dHIP samples (Figure 7B). It is important to note dimension 5 is responsible for less than 5% of the variance in the data.
+
+We have also performed automatic (statistical outlier detection) outlier detection using four different high dimensional methods to detect potential outliers amongst the 72 samples. We have applied them to both the raw counts and the log-CPM counts data. These diagnostic tools are high dimensional extension of Cook’s influence measure to identify influential observations, and two of them are designed to tackle the masking and swamping effects in high dimensional framework. They found 0 outliers for both dataset formats.
+
+Nevertheless we still decided to exclude the **01_09_ACC** sample (Female) from the analysis. This decision is based on two main observations. First, it is the only sample with a log fold change of almost 0.4 in the MDS plots, all the other potential outliers having less than 0.2 (Figure 7A), suggestion its strong difference from the rest of the data when considering sex. Second, to further investigate these outliers we plotted boxplots with expression value distributions of 5 Y chromosome genes for all samples. 01_09_ACC is the only female sample that displayed expression signals in Y chromosome genes. It is the only sample that behaved as such. These boxplots were made interactive in order to facilitate the visualization of outlier samples, they are HTML files contained in the **interactive_plots/sex_chr_gene_expression/y_chr_genes/** folder.
+
+That being said, having more samples helps with the power of the analysis and the voomWithQualityWeights() method described below can be used to account for outlier samples.
+
+
+# Differential Expression Analysis:
+
+## voom() and voomWithQualityWeights()
+
+Most of the pipelines and statistical methods developed are intended to analyze intensity data from microarrays. Intensity datasets are essentially continuous numerical experiments, while RNA-seq datasets are a collection of integer counts. The voom method provides the necessary statistical properties for the RNA-seq data to be analyzed using the statistical methodological tools developed for microarrays. Notice that, RNA-seq could be analyzed using statistical theory developed for count data, but the underlying mathematical theory of count distribution is less tractable than that of the normal distribution, and there is a problem related to the error rate control with small sample sizes. This being said, applying normal-based statistical tools to RNA-seq count data is not simple, because the counts have markedly unequal variabilities, even after log-transformation. The voom method finds it crucial to understand the way in which the variability of RNA-seq read counts depends on the size of the counts and addresses the issue by modeling the mean-variance relationship (Figure 8). In the voom method paper (Law et al., 2014), two ways of incorporating the mean-variance relationship into the differential expression analysis are explored. The first option, leading to the limma-trend analysis, is by setting the parameter ‘Trend’ to TRUE in the empirical Bayes function (eBayes) and the second one is by using a precision weight matrix combined with the normalized log-counts (limma-voom). Limma-trend applies the mean-variance relationship at the gene level whereas limma-voom applies it at the level of individual observations. **Limma-trend and voom perform almost equally well when the sequencing depths are the same for each RNA sample. When the sequencing depths are different, voom is the clear best performer**.  It is suggested that the limma-trend approach will usually work best if the ratio of the largest library size to the smallest is not more than about 3-fold. In the case of this analysis, the ratio is **3.2** and therefore using limma-voom is the better option.
+
+Source: [voom: precision weights unlock linear model analysis tools for RNA-seq read counts (Law et al. 2014)](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r29)
+
+RNA-seq experiments are often conducted with samples of variable quality. Instead of removing them the voomWithQualityWeights approach suggests including them and assigning them a weight. Precisely, the voomWithQualityWeights approach analyses RNA-seq experiments by assigning a quality weight to each sample. The sample weights are function of the estimated sample variance derived from a log-linear variance model that includes common sample-specific or group-specific parameters. This approach leads to a more powerful analysis and fewer false discoveries compared to conventional approaches.
+
+Source: [Why weight? Modelling sample and observational level variability improves power in RNA-seq analyses (Liu et al. 2015)](https://academic.oup.com/nar/article/43/15/e97/2414275)
+
+We have performed analysis with both voom and voomWithQualityWeights.
+
+```{r eval=TRUE, echo=FALSE, warning=FALSE, fig.width=8.65,fig.height=5,fig.pos="H",fig.cap="Means (x-axis) and variances (y-axis) of each gene are plotted to show the dependence between the two before voom is applied to the data (A) and how the trend is removed after voom precision weights are applied to the data (B). The plot on the left is created within the voom function which extracts residual variances from fitting linear models to log-CPM transformed data. Variances are then rescaled to quarter-root variances (or square-root of standard deviations) and plotted against the mean expression of each gene. The means are log2-transformed mean-counts with an offset of 2. The plot on the right is created using the plotSA() function which plots log2 residual standard deviations against mean log-CPM values. The average log2 residual standard deviation is marked by a horizontal blue line. In both plots, each black dot represents a gene and a red curve is fitted to these points. Figure caption from (Law et al., 2018)"}
+par(mfrow=c(1,2))
+#### Voom and Linear Modeling
+## Use voom() [15] to convert the read counts to log2-cpm, with associated weights, ready for linear modelling:
+v <- voom(dge, design, plot=FALSE)
+# v <- voomWithQualityWeights(dge, design, plot=TRUE)
+# Estimate the correlation between the brain region cell lines that were extracted from the same mouse subject.
+corfit = duplicateCorrelation(v, design, block = dge$samples$subject)
+
+## The intra cell line correlation will change the voom weights slightly, so we run voom a second time:
+v <- voom(dge, design, plot=TRUE, block = dge$samples$subject, correlation = corfit$consensus)
+# v <- voomWithQualityWeights(dge, design, plot=TRUE, block = dge$samples$subject, correlation = corfit$consensus)
+# Similary, we run update the correlation for the new voom weights:
+corfit = duplicateCorrelation(v, design, block = dge$samples$subject)
+
+## fit = lmFit(v, design, block = dge$samples$subject, correlation = corfit$consensus)
+fit = lmFit(v, design, block = dge$samples$subject, correlation = corfit$consensus)
+
+
+#### Contrasts
+cm = makeContrasts(
+  POLvsSAL = groupPOL-groupSAL,
+  levels = design
+)
+
+
+#### Fit Model
+fit2 = contrasts.fit(fit, cm)
+fit2 = eBayes(fit2, robust=TRUE)
+
+plotSA(fit2, main="Final model: Mean-variance trend")
+```
+
+## Design Matrix and Contrasts
+
+One of the advantages of using limma for RNA-Seq analysis is its ability to accommodate arbitrary experimental complexity. Amongst these features is performing comparisons between groups (log fold-changes), obtained as custom contrasts of the fitted linear models (source : [UC Davis Bioinformatics RNA-Seq Workshop, June 2018](https://ucdavis-bioinformatics-training.github.io/2018-June-RNA-Seq-Workshop/thursday/DE.html)). In this study we have designed contrasts allowing us to answer the study’s main questions for the analysis. We fitted models based on 4 different contrast designs.
+
+1. POLvsSAL with roi and sex
+2. POLvsSAL individual roi with sex
+3. Brain Region Interactions Analysis
+4. All Pairwise Comparisons POLvsSAL in roi in sex
+
+
+## Multiple Testing
+
+Limma provides two functions to perform hypothesis tests and adjust the p-values for multiple testing; **topTable()** and **decideTests()**. The basic statistical method used for significance analysis is the moderated t-statistic, which is computed for each probe and for each contrast.  The moderated t-statistic is similar to the ordinary t-statistic except that the standard errors have been moderated across genes using a simple Bayesian model **implemented by the eBayes() method**.
+
+### decideTests()
+
+The function decideTests offers a number of strategies for doing multiple testing across contrasts through its **method=** parameter. The latter offers four different options: separate, global, hierarchical and nested. The simplest one being the **separate** method.
+The separate method, which is the default option in the decideTests() function, does multiple testing for each contrasts separately and is the equivalent of using topTable().
+
+The **global** method is recommended when a set of closely related contrasts are being tested. This method simply appends all the tests together into one long vector of tests, i.e., it treats all the tests as being equivalent regardless of which probe or contrast they relate to. An advantage is that **the raw p-value cutoff is consistent across all contrasts**. For this reason, method="global" is recommended if you want to compare the number of DE genes found for different contrasts, for example interpreting the number of DE genes as representing the strength of the contrast. However users need to be aware that the number of DE genes for any particular contrasts will depend on which other contrasts are tested at the same time. Hence one should include only those contrasts which are closely related to the question at hand. Unnecessary contrasts should be excluded as these would affect the results for the contrasts of interest. Another more theoretical issue is that there is no theorem which proves that the adjust.method="BH" option, when in combination with the method="global" parameter, will correctly control the false discovery rates for combinations of negatively correlated contrasts. Nevertheless, simulations, experience and some theory suggest that the method is safe in practice (Smyth et al., 2019).
+
+The **hierarchical** method offers power advantages when used with adjust.method="holm" to control the family-wise error rate. However its properties are not yet well understood with adjust="BH".
+
+The **nestedF** method has a more specialized aim in giving greater weight to probes which are significant for two or more contrasts. Most multiple testing methods tend to underestimate the number of such probes. There is some practical experience to suggest that the nestedF method is less conservative when finding probes which respond to several different contrasts at once. However this method should still be viewed as experimental. It provides formal false discovery rate control at the probe level only, not at the contrast level.
+
+The decideTest differentially expressed genes tables can be found in the **results_summary.xlsx** file.
+
+### topTable()
+The topTable summarizes the results of the linear model and a gives a number of summary statistics for the top genes and selected contrast. The output from topTable includes an adjusted p-values column which displays the multiple testing result. By default, topTable and other Limma functions use **Benjamini and Hochberg**'s method (BH) to control the false discovery rate. **Notice that the topTable function handles the contrasts separately**. That being said, using it to test a set of contrast together will give the same results as when each contrast is tested on its own. topTable does not perform any multiple testing adjustments between contrasts, hence the raw p-value cutoff can be very different for different contrasts, depending on the number of DE probes. This method is recommended when different contrasts are being analysed to answer more or less independent questions.
+
+The topTable results, which are in fact the final gene lists, can be found in the **final_results/** folder. For each linear model design.
+
+## eBayes()
+The empirical Bayes method assumes a scaled chi-square prior distribution and uses that information to derive posterior values for the variance in the residuals. The moderated t-statistic is computed using that posterior values. The extra information is borrowed from the ensemble of genes for inference about each individual gene. Moderated t-statistics lead to p-values in the same way that ordinary t-statistics do, with the exception of increased degrees of freedom, reflecting the greater reliability associated with the smoothed standard errors.
+
+The eBayes function computes one more useful statistic, which is the moderated F-statistic (F). The F statistic combines the t-statistics for all the contrasts into an overall test of significance for that gene. The F-statistic tests whether any of the contrasts are non-zero for that gene, i.e., whether that gene is differentially expressed on any contrast. The denominator degrees of freedom is the same as that of moderated-t. Its p-value is stored as fit$F.p.value. It is similar to the ordinary F-statistic from analysis of variance except that the denominator mean squares are moderated across genes.
+
+We ran eBayes with the **robust=TRUE** parameter to account for gene-level outliers.
