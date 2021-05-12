@@ -86,6 +86,10 @@ Difference in alignment and read distribution.
 
 <br />
 
+---
+
+<br />
+
 [^1]: Melbourne Bioinformatics. (2017). RNA-Seq Experimental Design. https://www.melbournebioinformatics.org.au/tutorials/tutorials/rna_seq_exp_design/rna_seq_experimental_design/
 [^2]: Schurch, N. J., Schofield, P., Gierliński, M., Cole, C., Sherstnev, A., Singh, V., ... & Barton, G. J. (2016). How many biological replicates are needed in an RNA-seq experiment and which differential expression tool should you use?. Rna, 22(6), 839-851.
 [^3]: Sims, D., Sudbery, I., Ilott, N. E., Heger, A., & Ponting, C. P. (2014). Sequencing depth and coverage: key considerations in genomic analyses. Nature Reviews Genetics, 15(2), 121-132.
