@@ -1,3 +1,5 @@
+# Glossary
+
 **Library Size:** 
 
 The RNA that was sequenced is called the RNA library.  With longer read lengths and more accurate sequencing, these days in most organisms, most of the reads are mapped. 
