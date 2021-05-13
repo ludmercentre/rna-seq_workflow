@@ -44,14 +44,14 @@ samples are expected to have high variation (live specimens) or the effect is ex
 
 ## 2. Sequencing Depth (Coverage)
 
-Sequencing depth or coverage is the average quantity of reads mapped to a genome, usually defined theoretically as 'LN/G', where L is the read length, N is the number of reads and G is the haploid genome length.[^3] As with replicates, the greater the sequencing depth the better, since this will provide more information and therefore more statistical power. These variables, if possible, can be determined by the researcher. Hence the importance of conducting a pilot study first with a few samples to determine what depth and how many replicates (biological or technical) would be needed to gather enough power in the main analysis. There are published studies providing guideline on doing so:
+Sequencing depth or coverage is the average quantity of reads mapped to a genome, usually defined theoretically as 'LN/G', where L is the read length, N is the number of reads and G is the haploid genome length.[^3] Unlike with replicates, increasing read depth does not impact statistical power in a differential expression analysis. Differential expression analysis generally requires pretty low coverage (unless very low expressed genes are of interest) whereas any kind of de novo build or splicing analysis requires higher read depth. These variables, if possible, can be determined by the researcher the goal of the study needs to be considered. Hence the importance of conducting a pilot study first with a few samples to determine what depth and how many replicates (biological or technical) would be needed to gather enough power in the main analysis. There are published studies providing guideline on doing so:
 
 *With regard to testing of various experimental designs, this work strongly suggests that greater power is gained through the use of biological replicates relative to library (technical) replicates and sequencing depth. Strikingly, sequencing depth could be reduced as low as 15% without substantial impacts on false positive or true positive rates.*[^4]
 
 Illumina provides an online [Sequencing Coverage Calculator](https://support.illumina.com/downloads/sequencing_coverage_calculator.html) as well as [documentation](https://www.illumina.com/content/dam/illumina-marketing/documents/products/technotes/technote_coverage_calculation.pdf) to better understand and estimate sequencing coverage.
 
 Some general guidelines from C3G:
-* Is it possible to select the library size? This has an impact on the ability to detect small RNA species and also on affects the fragment size distribution.
+
 | Type of experiment | No. of mapped reads (per sample) | Length of reads
 | :---: | :---: | :---: |
 | Gene expression profiling | 10-25 million | 50-75 bp |

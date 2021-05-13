@@ -14,6 +14,15 @@ Before starting DGE analysis it is necessary assemble the STAR output into data 
 Albeit with the possibility of being even more complex, the DGEList object has to contain at least two data frames, **assays** and **colData**. As picture onf this figure from the Huber et al., 2015 Nature methods paper.[^2]
 ![Figure 2: The integrative data container SummarizedExperiment](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/41592_2015_Article_BFnmeth3252_Fig2_HTML.webp)
 
+The **assays** data contains the actual gene expression data organized by features (genes) in rows and the samples as columns. The **colData** file should contain the sample names or identification as rows **IN THE SAME ORDER** as the column names in the **assays** data and metadata as columns. The choice of metadata to include will vary with each experiment, this data can be used to cluster, label and better understand the expression data and is therefore very important.
+
+## 2. Performing the DE analysis in R:
+
+Below we will go through the steps of a typical Control (Ctrl) vs. Condition (Cond) bulk RNA-Seq differential gene expression analysis.
+
+### 2.1 Data import and setup:
+
+
 <br />
 
 ---
