@@ -5,7 +5,7 @@ The pre-processing steps starts with raw sequencing data (usually in fastq.gz fo
 
 Multiple programs can be used to perform quality control. Here we will use [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) and [MultiQC](https://multiqc.info/docs/).
 
-### 1.1. FastQC
+### 1.1 FastQC
 
 Run the program on the raw read files to return a QC report. 
 
@@ -17,7 +17,7 @@ Here the raw data is located in the **raw_data/** folder and the output (one for
 
 Sometimes there are information contained in the read file name, in this case it contains the company NEB (New England Biolabs) and the fact that the read are paired-end. R1 means this is the first of the two pairs. See the [Study Design](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/study_design.html) page.
 
-### 1.1. MultiQC
+### 1.2 MultiQC
 
 Run the program from anywhere within your project folder. MultiQC will automatically recognize file extensions and organize its report with the right files in each section.
 

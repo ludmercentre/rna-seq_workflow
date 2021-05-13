@@ -7,6 +7,16 @@ Here are some guidelines to do so:
 
 _A typical RNA-seq experiment aims to find differentially expressed genes between two conditions (e.g. up and down-regulated genes in knock-out mice compared to wild-type mice). RNA-seq can also be used to discover new transcripts, splice variants, and fusion genes._
 
+<!-- <br/>
+
+## Table of Contents
+1. [Replicates](#1replicates)
+2. [Example2](#example2)
+3. [Third Example](#third-example)
+4. [Fourth Example](#fourth-examplehttpwwwfourthexamplecom)
+
+<br/> -->
+
 ## 1. Replicates
 
 **Technical replicates:** Sequences derived from the same library/sample (lanes, flow cells, etc.)

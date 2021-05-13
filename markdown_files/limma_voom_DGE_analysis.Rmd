@@ -1,8 +1,6 @@
 ---
-title: "MIA RNA-Seq Pipeline Report"
-author: "Pedro and Amadou"
-date: "3/6/2020"
-output: pdf_document
+title: "Differential Gene Expression Analysis"
+# output: pdf_document
 header-includes:
    - \usepackage[justification=raggedright,labelfont=bf,singlelinecheck=false]{caption}
 ---
