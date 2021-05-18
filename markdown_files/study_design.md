@@ -1,7 +1,7 @@
 # Study Design
 It is important to determine a study design upfront.
 
-Here are some guidelines to do so:
+Here are some guidelines to assist in doing so:
 
 **N.B.** This page is inspired in part by the University of Melbourne's bioinformatics tutorials [RNA-Seq Experimental Design](https://www.melbournebioinformatics.org.au/tutorials/tutorials/rna_seq_exp_design/rna_seq_experimental_design/) page and the [Canadian Center for Computational Genomics (C3G)](https://www.computationalgenomics.ca/) online tutorials.
 
