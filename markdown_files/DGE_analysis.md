@@ -29,6 +29,8 @@ Loading the required packages:
 library(limma)
 library(Glimma)
 library(edgeR)
+library(RColorBrewer)
+library(kableExtra)
 ```
 
 Setting the working directory to the folder containing the analysis files. Refer to ____ for a sample/suggested directory tree.\
@@ -158,67 +160,87 @@ glMDSPlot(dge, labels=dge$samples$group,
 #### voom() and voomWithQualityWeights()
 Most of the pipelines and statistical methods developed are intended to analyze intensity data from microarrays. Intensity datasets are essentially continuous numerical experiments, while RNA-seq datasets are a collection of integer counts. The voom method provides the necessary statistical properties for the RNA-seq data to be analyzed using the statistical methodological tools developed for microarrays. Notice that, RNAseq could be analyzed using statistical theory developed for count data, but the underlying mathematical
 theory of count distribution is less tractable than that of the normal distribution, and there is a problem related to the error rate control with small sample sizes. This being said, applying normal-based statistical
-tools to RNA-seq count data is not simple, because the counts have markedly unequal variabilities, even after log-transformation. The voom method finds it crucial to understand the way in which the variability of RNA-seq read counts depends on the size of the counts and addresses the issue by modeling the meanvariance relationship (Figure 8). In the voom method paper (Law et al., 2014), two ways of incorporating the mean-variance relationship into the differential expression analysis are explored. The first option, leading
+tools to RNA-seq count data is not simple, because the counts have markedly unequal variabilities, even after log-transformation. The voom method finds it crucial to understand the way in which the variability of RNA-seq read counts depends on the size of the counts and addresses the issue by modeling the mean-variance relationship (Figure 8). In the voom method paper (Law et al., 2014), two ways of incorporating the mean-variance relationship into the differential expression analysis are explored. The first option, leading
 to the limma-trend analysis, is by setting the parameter ‘Trend’ to TRUE in the empirical Bayes function (eBayes) and the second one is by using a precision weight matrix combined with the normalized log-counts (limma-voom). Limma-trend applies the mean-variance relationship at the gene level whereas limma-voom
 applies it at the level of individual observations. Limma-trend and voom perform almost equally well when the sequencing depths are the same for each RNA sample. When the sequencing depths are different, voom is the clear best performer. It is suggested that the limma-trend approach will usually work best if the ratio of the largest library size to the smallest is not more than about 3-fold. In the case of this analysis, the ratio is 3.2 and therefore using limma-voom is the better option. Source: voom: precision weights unlock linear model analysis tools for RNA-seq read counts (Law et al. 2014) RNA-seq experiments are often conducted with samples of variable quality. Instead of removing them the voomWithQualityWeights approach suggests including them and assigning them a weight. Precisely, the voomWithQualityWeights approach analyses RNA-seq experiments by assigning a quality weight to each sample. The sample weights are function of the estimated sample variance derived from a log-linear variance model that includes common sample-specific or group-specific parameters. This approach leads to a more powerful analysis and fewer false discoveries compared to conventional approaches. Source: Why weight? Modelling sample and observational level variability improves power in RNA-seq analyses (Liu et al. 2015) We have performed analysis with both voom and voomWithQualityWeights.
+```
+Voom and Linear Modeling
+## Use voom() to convert the read counts to log2-cpm, with associated weights, ready for linear modelling:
+v <- voom(dge, design, plot=TRUE)
 
-### 2.7 Multiple Testing
-Limma provides two functions to perform hypothesis tests and adjust the p-values for multiple testing;
-topTable() and decideTests(). The basic statistical method used for significance analysis is the moderated
-t-statistic, which is computed for each probe and for each contrast. The moderated t-statistic is similar to
-the ordinary t-statistic except that the standard errors have been moderated across genes using a simple
-Bayesian model implemented by the eBayes() method.
-decideTests()
-The function decideTests offers a number of strategies for doing multiple testing across contrasts through
-its method= parameter. The latter offers four different options: separate, global, hierarchical and nested.
-The simplest one being the separate method. The separate method, which is the default option in the
-decideTests() function, does multiple testing for each contrasts separately and is the equivalent of using
-topTable().
-The global method is recommended when a set of closely related contrasts are being tested. This method
-simply appends all the tests together into one long vector of tests, i.e., it treats all the tests as being
-equivalent regardless of which probe or contrast they relate to. An advantage is that the raw p-value
-cutoff is consistent across all contrasts. For this reason, method=“global” is recommended if you want
-to compare the number of DE genes found for different contrasts, for example interpreting the number of DE
-genes as representing the strength of the contrast. However users need to be aware that the number of DE
-genes for any particular contrasts will depend on which other contrasts are tested at the same time. Hence one
-should include only those contrasts which are closely related to the question at hand. Unnecessary contrasts
-should be excluded as these would affect the results for the contrasts of interest. Another more theoretical
-issue is that there is no theorem which proves that the adjust.method=“BH” option, when in combination
-with the method=“global” parameter, will correctly control the false discovery rates for combinations of
-negatively correlated contrasts. Nevertheless, simulations, experience and some theory suggest that the
-method is safe in practice (Smyth et al., 2019).
-The hierarchical method offers power advantages when used with adjust.method=“holm” to control the
-family-wise error rate. However its properties are not yet well understood with adjust=“BH”.
-The nestedF method has a more specialized aim in giving greater weight to probes which are significant
-for two or more contrasts. Most multiple testing methods tend to underestimate the number of such probes.
-There is some practical experience to suggest that the nestedF method is less conservative when finding
-probes which respond to several different contrasts at once. However this method should still be viewed as
-experimental. It provides formal false discovery rate control at the probe level only, not at the contrast level.
-The decideTest differentially expressed genes tables can be found in the results_summary.xlsx file.
-topTable()
-The topTable summarizes the results of the linear model and a gives a number of summary statistics for
-the top genes and selected contrast. The output from topTable includes an adjusted p-values column which
-displays the multiple testing result. By default, topTable and other Limma functions use Benjamini and
-Hochberg’s method (BH) to control the false discovery rate. Notice that the topTable function
-handles the contrasts separately. That being said, using it to test a set of contrast together will give
-the same results as when each contrast is tested on its own. topTable does not perform any multiple testing
-adjustments between contrasts, hence the raw p-value cutoff can be very different for different contrasts,
-12
-depending on the number of DE probes. This method is recommended when different contrasts are being
-analysed to answer more or less independent questions.
-The topTable results, which are in fact the final gene lists, can be found in the final_results/ folder. For
-each linear model design.
+## If using vWQW:
+# v <- voomWithQualityWeights(dge, design, plot=TRUE)
 
+# Estimate the correlation between the brain region cell lines that were extracted from the same mouse subject.
+corfit = duplicateCorrelation(v, design, block = dge$samples$subject)
+
+## The intra cell line correlation will change the voom weights slightly, so we run voom a second time:
+v <- voom(dge, design, plot=TRUE, block = dge$samples$subject, correlation = corfit$consensus)
+
+## If using vWQW:
+# v <- voomWithQualityWeights(dge, design, plot=TRUE, block = dge$samples$subject, correlation = corfit$consensus)
+
+# Similary, we run update the correlation for the new voom weights:
+corfit = duplicateCorrelation(v, design, block = dge$samples$subject)
+```
+![Mean Variance Trend](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/mean_variance_trend.png)
+
+### 2.7 Contrasts and Model Fit:
+One of the advantages of using limma for RNA-Seq analysis is its ability to accommodate arbitrary experimental complexity. Amongst these features is performing comparisons between groups (log fold-changes), obtained as custom contrasts of the fitted linear models (source : UC Davis Bioinformatics RNA-Seq Workshop, June 2018). In this study we have designed contrasts allowing us to answer the study’s main questions for the analysis.
+```
+fit = lmFit(v, design, block = dge$samples$subject, correlation = corfit$consensus)
+
+#### Contrasts
+cm = makeContrasts(
+  POLvsSAL = POL-SAL,
+  levels = design
+)
+
+fit2 = contrasts.fit(fit, cm)
+```
 ### 2.8 eBayes()
 The empirical Bayes method assumes a scaled chi-square prior distribution and uses that information to derive posterior values for the variance in the residuals. The moderated t-statistic is computed using that posterior values. The extra information is borrowed from the ensemble of genes for inference about each individual gene. Moderated t-statistics lead to p-values in the same way that ordinary t-statistics do, with the exception of increased degrees of freedom, reflecting the greater reliability associated with the smoothed
 standard errors. The eBayes function computes one more useful statistic, which is the moderated F-statistic (F). The F statistic combines the t-statistics for all the contrasts into an overall test of significance for that gene. The
 F-statistic tests whether any of the contrasts are non-zero for that gene, i.e., whether that gene is differentially expressed on any contrast. The denominator degrees of freedom is the same as that of moderated-t. Its
 p-value is stored as fit$F.p.value. It is similar to the ordinary F-statistic from analysis of variance except that the denominator mean squares are moderated across genes. We ran eBayes with the robust=TRUE parameter to account for gene-level outliers.\
-`fit2 = eBayes(fit2, robust=TRUE)`
+`fit3 = eBayes(fit2, robust=TRUE)`
 
-### 2.9 Saving to file:
+### 2.9 Multiple Testing
+Limma provides two functions to perform hypothesis tests and adjust the p-values for multiple testing; topTable() and decideTests(). The basic statistical method used for significance analysis is the moderated
+t-statistic, which is computed for each probe and for each contrast. The moderated t-statistic is similar to the ordinary t-statistic except that the standard errors have been moderated across genes using a simple Bayesian model implemented by the eBayes() method. 
+#### decideTests()
+The function decideTests offers a number of strategies for doing multiple testing across contrasts through its method= parameter. The latter offers four different options: separate, global, hierarchical and nested. The simplest one being the separate method. The separate method, which is the default option in the decideTests() function, does multiple testing for each contrasts separately and is the equivalent of using topTable(). The global method is recommended when a set of closely related contrasts are being tested. This method simply appends all the tests together into one long vector of tests, i.e., it treats all the tests as being equivalent regardless of which probe or contrast they relate to. An advantage is that the raw p-value cutoff is consistent across all contrasts. For this reason, method=“global” is recommended if you want to compare the number of DE genes found for different contrasts, for example interpreting the number of DE genes as representing the strength of the contrast. However users need to be aware that the number of DE genes for any particular contrasts will depend on which other contrasts are tested at the same time. Hence one should include only those contrasts which are closely related to the question at hand. Unnecessary contrasts should be excluded as these would affect the results for the contrasts of interest. Another more theoretical issue is that there is no theorem which proves that the adjust.method=“BH” option, when in combination with the method=“global” parameter, will correctly control the false discovery rates for combinations of negatively correlated contrasts. Nevertheless, simulations, experience and some theory suggest that the method is safe in practice (Smyth et al., 2019). The hierarchical method offers power advantages when used with adjust.method=“holm” to control the family-wise error rate. However its properties are not yet well understood with adjust=“BH”. The nestedF method has a more specialized aim in giving greater weight to probes which are significant for two or more contrasts. Most multiple testing methods tend to underestimate the number of such probes. There is some practical experience to suggest that the nestedF method is less conservative when finding probes which respond to several different contrasts at once. However this method should still be viewed as experimental. It provides formal false discovery rate control at the probe level only, not at the contrast level. The decideTest differentially expressed genes tables can be found in the results_summary.xlsx file. 
+#### topTable()
+The topTable summarizes the results of the linear model and a gives a number of summary statistics for the top genes and selected contrast. The output from topTable includes an adjusted p-values column which displays the multiple testing result. By default, topTable and other Limma functions use Benjamini and
+Hochberg’s method (BH) to control the false discovery rate. Notice that the topTable function handles the contrasts separately. That being said, using it to test a set of contrast together will give the same results as when each contrast is tested on its own. topTable does not perform any multiple testing
+adjustments between contrasts, hence the raw p-value cutoff can be very different for different contrasts, depending on the number of DE probes. This method is recommended when different contrasts are being analysed to answer more or less independent questions. The topTable results, which are in fact the final gene lists, can be found in the final_results/ folder. For each linear model design.
+```
+dt <- decideTests(fit2, method="separate")
+# To make the output nice:
+kable(t(summary(dt)))
 
+top.table <- topTable(fit2, sort.by = "P", n = Inf, adjust.method="BH")
+```
+```
+|         | Down| NotSig|  Up|
+# |:--------|----:|------:|---:|
+# |POLvsSAL |  560|  14225| 240|
+```
 
+### 2.10 Saving to file:
+If single comparison (from above):
+
+In case of multiple comparisons made (See 2.7 Contrasts and Model Fit):
+```
+for (c in colnames(dt)) {
+  
+  degs = topTable(fit2, coef = c, n=Inf, sort.by = 'P', adjust.method='BH')
+  
+  write.csv(degs, file=paste0("../DE_results_folder/", c, ".csv"), row.names=F)
+}
+```
+
+See for output top.table file.
 
 <br />
 
