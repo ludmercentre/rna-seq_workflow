@@ -43,6 +43,28 @@ In some experiments comparing two conditions, there might not be any genes or on
 
 GSEA is a tool developed by the UC San Diego and the Broad Institute to achieve just that. It has been around for longer than the two previous tools. It takes full ranked list as input. It uses the Kolmogorov-Smirnov (KS) test to assign enrichment score (ES) to a group of genes with multiple testing corrections applied. The KS test compares the distribution of gene p-values expected at random to the observed distribution of the gene p-values to arrive at a probability. GSEA is available as standalone desktop software downloadable from their [website](http://www.gsea-msigdb.org/gsea/index.jsp). It also provides a very comprehensive [documentation](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Main_Page) and it's very own [Molecular Signatures Database (MSigDB)](http://www.gsea-msigdb.org/gsea/msigdb/index.jsp), a collection of annotated gene sets for use with GSEA software. Custom annotated gene sets can also be used.
 
+GSEA works by progressively examining genes from the top to the bottom of the ranked list, increasing the ES if a gene is part of the pathway and decreasing the score otherwise. These running sum values are weighted, so that enrichment in the very top- (and bottom-) ranking genes is amplified, whereas enrichment in genes with more moderate ranks are not amplified. The ES score is calculated as the maximum value of the running sum and normalized relative to pathway size, resulting in a normalized enrichment score (NES) that reflects the enrichment of the pathway in the list. It then searches for the MSigDB gene set database, which includes pathways, published gene signatures, microRNA target genes and other gene set types. The user can also provide a custom database. GSEA also allows to search MSigDB for significant pathways also appearing in other experiments.
+
+## 3. Visualization and interpretation of pathway enrichment analysis results
+Pathway information is inherently redundant, as genes often participate in multiple pathways, and databases may organize pathways hierarchically by including general and specific pathways with many shared genes (e.g., “cell cycle” and “M-phase of cell cycle”, etc.). Collapsing redundant pathways into a single biological theme simplifies interpretation and visualization. As recommended in the Reimand et al. 2019 paper, Cytoscape is the current state of the art tool to do so. Just as GSEA it comes in a standalone, downloadable, GUI software for use from the desktop but can also be completely used programmatically with scripting languages such as python and R. It allows the visualization of many different types of biological data like gene networks and ___. For pathway enrichment analysis EnrchimentMap and AutoAnnotate are usually the tools to use. As seen in the Figure bellow, pathways are shown as circles (nodes) that are connected with lines (edges) if the pathways share many genes. Nodes are colored by ES. Edges are sized on the basis of the number of genes shared by the connected pathways. Network layout and clustering algorithms automatically group similar pathways into major biological themes.
+![cytoscape1](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/diab2.png)
+
+Cytoscape's main [website](https://cytoscape.org/).
+
+
+
+All in all, The advantages of using pathway analysis are that it improves statistical power in two ways; by aggregates counts of all the genes and genomic regions involved in a given cell mechanism, providing a higher number of counts, which makes statistical analyses more reliable and by reducing the dimensionality from tens of thousands of genes or millions of genomic regions (e.g., SNPs) to a much smaller number of “systems” or “pathways”.[^1]
+It also simplifies results as the analysis is phrased at the level of familiar concepts such as “cell cycle”. Better for publishing and can help identify potential causal mechanisms and drug targets. Or other types of experiment planning (e.g., identification of novel pathways). It also makes comparing results obtained from related, but different data easier and facilitates integration of diverse data types, such as genomics, transcriptomics and proteomics, which can all be mapped to the same pathways.
+
+Far from being a perfect technique and still constently undergoing improvements it does come with it's limitations such as a bias towards pathways in which multiple genes have strong biological signals. Pathways in which activity is controlled by only a few genes or not controlled by gene expression (e.g., by post-translational regulation) will never be observed as enriched. Pathway boundaries tend to be arbitrary, and different databases will disagree about which genes are involved in a given pathway. (Benefits of using multiple databases)
+Statistical bias toward larger pathways. Multi-functional genes that are highly ranked in the gene list may lead to enrichment of many different pathways, some of which are not relevant to the experiment. Biased toward well-known pathways. Pathway enrichment analysis ignores genes with no pathway annotations, the “dark matter of the genome”.
+Most enrichment analysis methods make unrealistic assumptions of statistical independence among genes as well as pathways. Some genes may always be co-expressed and some pathways have genes in common. 
+
+
+
+
+
+
 <br />
 
 ---
