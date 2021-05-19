@@ -39,7 +39,7 @@ g:Profiler uses very similar calculations as Enrichir, it also has a very user f
 
 ### 2.2. Gene-set enrichment analysis (GSEA).
 In some experiments comparing two conditions, there might not be any genes or only a few genes that are significantly over-represented in pathways or gene sets, but this doesn't mean that groups of genes aren't enriched. See the figure below:
-![diab2](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/diab2.pdf)
+![diab2](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/diab2.png)
 
 
  GSEA Takes full ranked list as input. It uses the Kolmogorov-Smirnov (KS) test to assign enrichment score (ES) to a group of genes with multiple testing corrections applied.
