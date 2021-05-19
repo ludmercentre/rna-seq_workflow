@@ -24,7 +24,7 @@ The statistical detection of pathways or other groups of genes showing an over-r
 There are two presently used method to conduct enrichment analysis, gene enrichment analysis and gene-set enrichment analysis (GSEA).
 
 ### 2.1. Gene enrichment analysis.
-Takes list or partial ranked list as input. The p-value of the enrichment of a pathway is computed using a Fisher’s exact test and multiple-test correction is applied (usually Benjamini‐Hochberg's method or a custom method). The results are usually computed by referencing to the many databases mentioned above. Multiple software: g:Profiler, DAVID, Enrichr, GOrilla, etc.
+Takes list or partial ranked list as input. The p-value of the enrichment of a pathway is computed using a Fisher’s exact test and multiple-test correction is applied (usually Benjamini‐Hochberg's method or a custom method). The Fisher's exact test compares the expected number of significant genes at random to the observed number of significant genes to arrive at a probability. The results are usually computed by referencing to the many databases mentioned above. Multiple software: g:Profiler, DAVID, Enrichr, GOrilla, etc.
 
 In the scope of this tutorial we recommend using two tools for the gene enrichment analysis:
 
@@ -41,14 +41,7 @@ g:Profiler uses very similar calculations as Enrichir, it also has a very user f
 In some experiments comparing two conditions, there might not be any genes or only a few genes that are significantly over-represented in pathways or gene sets, but this doesn't mean that groups of genes aren't enriched. See the figure below:
 ![diab2](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/diab2.png)
 
-
- GSEA Takes full ranked list as input. It uses the Kolmogorov-Smirnov (KS) test to assign enrichment score (ES) to a group of genes with multiple testing corrections applied.
-Performed by the GSEA software from the Broad Institute (2005).
-
-Statistical Tests:
-Fisher's exact test compares the expected number of significant genes at random to the observed number of significant genes to arrive at a probability.
-The KS test compares the distribution of gene p-values expected at random to the observed distribution of the gene p-values to arrive at a probability.
-
+GSEA is a tool developed by the UC San Diego and the Broad Institute to achieve just that. It has been around for longer than the two previous tools. It takes full ranked list as input. It uses the Kolmogorov-Smirnov (KS) test to assign enrichment score (ES) to a group of genes with multiple testing corrections applied. The KS test compares the distribution of gene p-values expected at random to the observed distribution of the gene p-values to arrive at a probability. GSEA is available as standalone desktop software downloadable from their [website](http://www.gsea-msigdb.org/gsea/index.jsp). It also provides a very comprehensive [documentation](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Main_Page) and it's very own [Molecular Signatures Database (MSigDB)](http://www.gsea-msigdb.org/gsea/msigdb/index.jsp), a collection of annotated gene sets for use with GSEA software. Custom annotated gene sets can also be used.
 
 <br />
 
