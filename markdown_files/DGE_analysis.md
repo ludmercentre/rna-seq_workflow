@@ -59,16 +59,16 @@ targets_df <- data.frame(sample_id = targets_df$sample_id,
 
 
 # Group
-group = factor(targets$treat)
+group = factor(targets_df$treat)
 
 # remove.zeros=TRUE gets rid of genes with 0 counts
 dge <- DGEList(counts=star_results_df, group=group, remove.zeros=TRUE)
 
 # add factors to DGEList object
-dge$samples$subject <- targets_df$subject
-dge$samples$treat <- targets_df$treat
-dge$samples$sex <- targets_df$sex
-dge$samples$roi <- targets_df$roi
+dge$samples$subject <- factor(targets_df$subject)
+dge$samples$treat <- factor(targets_df$treat)
+dge$samples$sex <- factor(targets_df$sex)
+dge$samples$roi <- factor(targets_df$roi)
 
 
 # add annotations, same order as in DGE object gene ids:
@@ -89,7 +89,7 @@ If we were to filter using the samples metadat **colData**, for instance to only
 dge <- dge[, which(dge$samples$sex=="F")]
 ```
 
-Creating the Design Matrix, the reason we create the design matrix now is that it is required as a parameter by the [filterByExpr()](https://rdrr.io/bioc/edgeR/man/filterByExpr.html) function. The latter provides an automatic way to filter genes while keeping as many genes as possible with counts considered worthwhile.[^1] The package suggests keeping between 10 and 15 read counts as a minimum number of samples, where the number of samples is chosen according to the minimum group sample size. The actual filtering uses [CPM (Counts per million)](http://luisvalesilva.com/datasimple/rna-seq_units.html#CPM) values rather than counts in order to avoid giving preference to samples with large library sizes. For our dataset, the median library size is about 29 million reads and we chose to keep 10 as a min.count value, since our analysis has enough replicates (6) to account for potential outliers. Since 10/29 = 0.344, the function keeps genes that have a CPM of 0.344 or more in at least 6 samples. A biologically interesting gene should be expressed in at least six samples because all the cell type groups have six replicates. The cutoffs used depend on the sequencing depth and on the experimental design. If the library sizes had been larger, then a lower CPM cutoff would have been chosen, because larger library sizes provide better resolution to explore more genes at lower expression levels. Alternatively, smaller library sizes decrease our ability to explore marginal genes and hence would have led to a higher CPM cutoff. Using this criterion, the number of genes is reduced to 15387, or about 27.76% of the original 55421 genes.
+Creating the Design Matrix, the reason we create the design matrix now is that it is required as a parameter by the [filterByExpr()](https://rdrr.io/bioc/edgeR/man/filterByExpr.html) function. The latter provides an automatic way to filter genes while keeping as many genes as possible with counts considered worthwhile.[^1] The package suggests keeping between 10 and 15 read counts as a minimum number of samples, where the number of samples is chosen according to the minimum group sample size. The actual filtering uses [CPM (Counts per million)](http://luisvalesilva.com/datasimple/rna-seq_units.html#CPM) values rather than counts in order to avoid giving preference to samples with large library sizes. For our dataset, the median library size is about 29 million reads and we chose to keep 10 as a min.count value, since our analysis has enough replicates (6) to account for potential outliers. Since 10/29 = 0.344, the function keeps genes that have a CPM of 0.344 or more in at least 6 samples. A biologically interesting gene should be expressed in at least six samples because all the cell type groups have six replicates. The cutoffs used depend on the sequencing depth and on the experimental design. If the library sizes had been larger, then a lower CPM cutoff would have been chosen, because larger library sizes provide better resolution to explore more genes at lower expression levels. Alternatively, smaller library sizes decrease our ability to explore marginal genes and hence would have led to a higher CPM cutoff. Using this criterion, the number of genes is reduced to 15025 of the original 55421 genes.
 ```
 design = model.matrix(~ 0 + group + roi + sex, data = dge$samples)
 # Remove "group" from design column names:
@@ -126,24 +126,17 @@ Exploring differences between libraries. The multi-dimensional scaling (MDS) plo
 pair of samples. Leading log-fold-change is the root-mean-square average of the largest log2-fold-changes between each pair of samples. We used the MDS plot to identify potential sample outliers. The first dimension represents the leading-fold change that best separates samples and explains the largest proportion of variation in the data, with subsequent dimensions having a smaller effect and being orthogonal to the ones before it. Since our experimental design involves multiple factors, we examined each factor over several dimensions. If samples cluster by a given factor in any of these dimensions, it suggests that the factor contributes to expression differences and is worth including in the linear modelling. On the other hand, factors that show little or no effect may be left out of downstream analysis. In this dataset, samples can be seen to cluster well within brain region groups over dimension 1 and 2, and then separate by sex over dimension 5.
 
 ```
-# MDS Plots
 par(mfrow=c(1,2))
-# ROI (Brain Regions) on dimensions 1 vs. 2:col.group <- dge$samples$roi # gen color group vector
+
+# ROI (Brain Regions) on dimensions 1 vs. 2:
 col.group <- dge$samples$roi # gen color group vector
 levels(col.group) <-  brewer.pal(nlevels(col.group), "Set1") # assign colors as factors
 col.group <- as.character(col.group)
 mds <- plotMDS(dge, labels=dge$samples$roi, col=col.group, dim.plot=c(1,2), main="A. ROI dimensions 1 vs. 2")
 
 # Sex on dimensions 4 vs. 5:
-levels(dge$samples$sex) <- c(levels(dge$samples$sex), "E") # Add level to sex to color differently the excluded samples
-dge$samples['X01_09_ACC',]$sex <- "E" # Replace sex with 'E' for excluded sample
 col.group <- dge$samples$sex # gen color group vector
-dge$samples['X01_09_ACC',]$sex <- "F" # Assign it back to 'F'
-dge$samples$sex <- factor(dge$samples$sex) # Reset factor
-
-# levels(col.group) <-  brewer.pal(nlevels(col.group), "Set1") # assign colors as factors
-levels(col.group) <-  c("#E41A1C", "#377EB8", "#984EA3") # purple color for excluded
-# levels(col.group) <-  c("#E41A1C", "#377EB8", "#A65628") # brown color for excluded
+levels(col.group) <-  brewer.pal(nlevels(col.group), "Set1") # assign colors as factors
 col.group <- as.character(col.group)
 mds <- plotMDS(dge, labels=dge$samples$sex, col=col.group, dim.plot=c(4,5), main="B. Sex dimensions 4 vs. 5")
 ```
@@ -221,10 +214,11 @@ kable(t(summary(dt)))
 
 top.table <- topTable(fit2, sort.by = "P", n = Inf, adjust.method="BH")
 ```
+ktable output:
 ```
 |         | Down| NotSig|  Up|
-# |:--------|----:|------:|---:|
-# |POLvsSAL |  560|  14225| 240|
+|:--------|----:|------:|---:|
+|POLvsSAL |  560|  14225| 240|
 ```
 
 ### 2.10 Saving to file:
