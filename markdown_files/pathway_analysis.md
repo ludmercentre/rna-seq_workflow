@@ -39,7 +39,7 @@ g:Profiler uses very similar calculations as Enrichir, it also has a very user f
 
 ### 2.2. Gene-set enrichment analysis (GSEA).
 In some experiments comparing two conditions, there might not be any genes or only a few genes that are significantly over-represented in pathways or gene sets, but this doesn't mean that groups of genes aren't enriched. See the figure below:
-![diab2](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/diab2.png)
+![diab2](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/gsea1.png)
 
 GSEA is a tool developed by the UC San Diego and the Broad Institute to achieve just that. It has been around for longer than the two previous tools. It takes full ranked list as input. It uses the Kolmogorov-Smirnov (KS) test to assign enrichment score (ES) to a group of genes with multiple testing corrections applied. The KS test compares the distribution of gene p-values expected at random to the observed distribution of the gene p-values to arrive at a probability. GSEA is available as standalone desktop software downloadable from their [website](http://www.gsea-msigdb.org/gsea/index.jsp). It also provides a very comprehensive [documentation](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Main_Page) and it's very own [Molecular Signatures Database (MSigDB)](http://www.gsea-msigdb.org/gsea/msigdb/index.jsp), a collection of annotated gene sets for use with GSEA software. Custom annotated gene sets can also be used.
 
@@ -47,7 +47,7 @@ GSEA works by progressively examining genes from the top to the bottom of the ra
 
 ## 3. Visualization and interpretation of pathway enrichment analysis results
 Pathway information is inherently redundant, as genes often participate in multiple pathways, and databases may organize pathways hierarchically by including general and specific pathways with many shared genes (e.g., “cell cycle” and “M-phase of cell cycle”, etc.). Collapsing redundant pathways into a single biological theme simplifies interpretation and visualization. As recommended in the Reimand et al. 2019 paper, Cytoscape is the current state of the art tool to do so. Just as GSEA it comes in a standalone, downloadable, GUI software for use from the desktop but can also be completely used programmatically with scripting languages such as python and R. It allows the visualization of many different types of biological data like gene networks and ___. For pathway enrichment analysis EnrchimentMap and AutoAnnotate are usually the tools to use. As seen in the Figure bellow, pathways are shown as circles (nodes) that are connected with lines (edges) if the pathways share many genes. Nodes are colored by ES. Edges are sized on the basis of the number of genes shared by the connected pathways. Network layout and clustering algorithms automatically group similar pathways into major biological themes.
-![cytoscape1](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/diab2.png)
+![cytoscape1](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/cytoscape1.png)
 
 Cytoscape's main [website](https://cytoscape.org/).
 
