@@ -186,7 +186,7 @@ corfit = duplicateCorrelation(v, design, block = dge$samples$subject)
 ```
 
 <figure class="image">
-  <img src="https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/mean_variance_trend.png" alt="Figure 4: Mean Variance Trend">
+  <img src="https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/mean_variance_trend.png" alt="Figure 4: Mean Variance Trend">
   <figcaption> <b>Figure 4:</b> Mean Variance Trend</figcaption>
 </figure>
 
