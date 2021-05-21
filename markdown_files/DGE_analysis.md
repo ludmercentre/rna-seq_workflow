@@ -245,10 +245,10 @@ for (c in colnames(dt)) {
 
 See [POLvsSAL.csv](https://github.com/ludmercentre/rna-seq_workflow/tree/master/data_files/limma_voom/POLvsSAL.csv) for a sample output top.table file.
 
-Also see the [volcano_plot.r](https://github.com/ludmercentre/rna-seq_workflow/tree/master/scripts/dge_analysis/volcano_plot.r) file for a script that can generate a volcano plot similar to the one below for this analysis. See the [sample_figures](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/https://ludmercentre.github.io/rna-seq_workflow/sample_figures) page for example outputs.
+Also see the [volcano_plot.r](https://github.com/ludmercentre/rna-seq_workflow/tree/master/scripts/dge_analysis/volcano_plot.r) file for a script that can generate a volcano plot similar to the one below for this analysis. See the [sample_figures](https://ludmercentre.github.io/rna-seq_workflow/sample_figures) page for example outputs.
 
 <figure class="image">
-  <img src="https://ludmercentre.github.io/rna-seq_workflow/markdown_files/images/https://ludmercentre.github.io/rna-seq_workflow/sample_figures/volcano_plot_degs_labeled.png" alt="Figure 5: Example Labeled Volcano Plot">
+  <img src="https://ludmercentre.github.io/rna-seq_workflow/sample_figures/volcano_plot_degs_labeled.png" alt="Figure 5: Example Labeled Volcano Plot">
   <figcaption> <b>Figure 5:</b> Example Labeled Volcano Plot</figcaption>
 </figure>
 
