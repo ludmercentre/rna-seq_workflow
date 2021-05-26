@@ -59,6 +59,10 @@ Some general guidelines from C3G:
 | Transcriptome assembly | > 100 million | > 75 bp |
 | miRNA and sRNA analysis | 1-5 million (targeted) | 50 bp (single-end) |
 
+Some studies will also refer to the chosen sequencing depth as fold coverage. x coverage (or -fold covergae is used to describe the sequencing depth. For example, if your genome has a size of 10 Mbp and you have 100 Mbp of sequencin data that is assembled to said 10 Mbp genome, you have 10x coverage.
+% coverage is used, e.g., in sequence mapping. If you have a reference genome of 10 Mbp and 70 Mbp sequence data from a different strain mapping to 7 Mbp of the reference, you have 70% coverage of the reference (with a 10x coverage of the covered regions). Jiang et al., 2019  reported that Our results indicated that 10X is an ideal practical depth for achieving plateau coverage and discovering accurate variants, which achieved greater than 99% genome coverage. The number of false-positive variants was increased dramatically at a depth of less than 4X, which covered 95% of the whole genome. In addition, the comparison of multi- and single-sample calling showed that multisample calling was more sensitive than single-sample calling, especially at lower depths. The number of variants discovered under multisample calling was 13-fold and 2-fold higher than that under single-sample calling at 1X and 22X, respectively. A large difference was observed when the depth was less than 4.38X. However, more false-positive variants were detected under multisample calling.[^5]
+
+
 ## 3. Read Length
 
 Defining read length is also an important decision. Usually sequencers have a technical limit to the amount of reads they can sequence. Short read sequencing provides high accuracy but only small fragments of data, which gives an incomplete picture.
@@ -104,4 +108,5 @@ Difference in alignment and read distribution.
 [^2]: Schurch, N. J., Schofield, P., Gierliński, M., Cole, C., Sherstnev, A., Singh, V., ... & Barton, G. J. (2016). How many biological replicates are needed in an RNA-seq experiment and which differential expression tool should you use?. Rna, 22(6), 839-851.
 [^3]: Sims, D., Sudbery, I., Ilott, N. E., Heger, A., & Ponting, C. P. (2014). Sequencing depth and coverage: key considerations in genomic analyses. Nature Reviews Genetics, 15(2), 121-132.
 [^4]: Robles, J. A., Qureshi, S. E., Stephen, S. J., Wilson, S. R., Burden, C. J., & Taylor, J. M. (2012). Efficient experimental design and analysis strategies for the detection of differential expression using RNA-Sequencing. BMC genomics, 13(1), 1-14.
-[^5]: Robles, J. A., Qureshi, S. E., Stephen, S. J., Wilson, S. R., Burden, C. J., & Taylor, J. M. (2012). Efficient experimental design and analysis strategies for the detection of differential expression using RNA-Sequencing. BMC genomics, 13(1), 1-14.
+[^5]: Jiang, Y., Jiang, Y., Wang, S., Zhang, Q., & Ding, X. (2019). Optimal sequencing depth design for whole genome re-sequencing in pigs. BMC bioinformatics, 20(1), 1-12.
+

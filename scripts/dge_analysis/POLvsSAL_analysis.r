@@ -4,39 +4,38 @@ library(edgeR)
 library(RColorBrewer)
 library(kableExtra)
 
-setwd("C:/Users/path_to_analysis_directory/scripts")
+setwd("C:/Users/path_to_analysis_directory/rna-seq_workflow/scripts/dge_analysis")
 
 #### Import required files
 # Experimental variables:
-targets_df = read.csv('../data/conditions_df.csv')
+colData_df = read.csv('../../data_files/limma_voom/conditions_df.csv')
 
 # STAR gene count output results dataframe:
-assays = read.csv('../data/star_results.csv', row.names=1)
-# star_results_df = read.csv('../data/star_results_no_mm.csv', row.names=1)
+assays_df = read.csv('../../data_files/limma_voom/star_results.csv', row.names=1)
 
 # Biomart gene annotation file http://useast.ensembl.org/biomart/martview/:
-annotations_df = read.csv("../data/mm10_biomart_annotated_genes.csv")
+rowData_df = read.csv("../../data_files/limma_voom/mm10_biomart_annotated_genes.csv")
 
 # dataframe with factors:
-targets_df <- data.frame(sample_id = targets_df$sample_id, 
-                         subject = substr(targets_df$sample_id, 1, 5), 
-                         treat = targets_df$treatment, 
-                         sex = targets_df$sex, 
-                         roi = targets_df$region
+colData_df <- data.frame(sample_id = colData_df$sample_id, 
+                         subject = substr(colData_df$sample_id, 1, 5), 
+                         treat = colData_df$treatment, 
+                         sex = colData_df$sex, 
+                         roi = colData_df$region
 )
 
 
 # Group
-group = factor(targets_df$treat)
+group = factor(colData_df$treat)
 
 # remove.zeros=TRUE gets rid of genes with 0 counts
-dge <- DGEList(counts=star_results_df, group=group, remove.zeros=TRUE)
+dge <- DGEList(counts=assays_df, group=group, remove.zeros=TRUE)
 
 # add factors to DGEList object
-dge$samples$subject <- factor(targets_df$subject)
-dge$samples$treat <- factor(targets_df$treat)
-dge$samples$sex <- factor(targets_df$sex)
-dge$samples$roi <- factor(targets_df$roi)
+dge$samples$subject <- factor(colData_df$subject)
+dge$samples$treat <- factor(colData_df$treat)
+dge$samples$sex <- factor(colData_df$sex)
+dge$samples$roi <- factor(colData_df$roi)
 
 
 # add annotations, same order as in DGE object gene ids:
@@ -50,7 +49,7 @@ keep <- dge$genes$gene_biotype == 'protein_coding'
 dge <- dge[keep, ]
 
 # Only keep female samples:
-dge <- dge[, which(dge$samples$sex=="F")]
+# dge <- dge[, which(dge$samples$sex=="F")]
 
 design = model.matrix(~ 0 + group + roi + sex, data = dge$samples)
 # Remove "group" from design column names:
@@ -59,6 +58,11 @@ colnames(design) = sub("group", "", colnames(design))
 # Remove Lowly Expressed Genes:
 keep <- filterByExpr(dge, design=design, min.count=10)
 dge <- dge[keep,, keep.lib.sizes=FALSE]
+
+
+#### Background Gene Lists Generation:
+# Save background genes list to file:
+write.csv(dge$genes, "../../data_files/limma_voom/bg_list.csv", row.names=FALSE)
 
 
 #### Normalization
@@ -123,14 +127,20 @@ dt <- decideTests(fit3, method="separate")
 # To make the output nice:
 kable(t(summary(dt)))
 
-top.table <- topTable(fit3, sort.by = "P", n = Inf, adjust.method="BH")
+top.table <- topTable(fit3, sort.by="P", n=Inf, adjust.method="BH")
 
 # Saving to file:
-write.csv(top.table, file="../DE_results_folder/POLvsSAL.csv", row.names=F)
+write.csv(top.table, file="../../data_files/limma_voom/POLvsSAL.csv", row.names=F)
 
+# Partial lists:
+write.csv(top.table[which(top.table$adj.P.Val < 0.05 & top.table$logFC > 0),], file="../../data_files/limma_voom/POLvsSAL_UP_DEGs.csv")
+
+write.csv(top.table[which(top.table$adj.P.Val < 0.05 & top.table$logFC < 0),], file="../../data_files/limma_voom/POLvsSAL_DOWN_DEGs.csv")
+
+# In case of multiple comparisons:
 for (c in colnames(dt)) {
   
-  degs = topTable(fit2, coef = c, n=Inf, sort.by = 'P', adjust.method='BH')
+  degs = topTable(fit2, coef=c, n=Inf, sort.by='P', adjust.method='BH')
   
   write.csv(degs, file=paste0("../DE_results_folder/", c, ".csv"), row.names=F)
 }

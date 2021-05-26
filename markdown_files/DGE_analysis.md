@@ -24,7 +24,7 @@ The choice of metadata to include will vary with each experiment, this data can 
 
 ## 2. Performing the DE analysis in R:
 
-Below we will go through the steps of a typical Control (Ctrl) vs. Condition (Cond) bulk RNA-Seq differential gene expression analysis.
+Below we will go through the steps of a typical Control (Ctrl) vs. Condition (Cond) bulk RNA-Seq differential gene expression analysis. You can find the Rscript file with only the code content [here](https://github.com/ludmercentre/rna-seq_workflow/tree/master/scripts/dge_analysis/limma_voom_analysis.r).
 
 ### 2.1 Data import and setup:
 
@@ -38,41 +38,41 @@ library(kableExtra)
 ```
 
 Setting the working directory to the folder containing the analysis files. Refer to ____ for a sample/suggested directory tree.\
-`setwd("C:/Users/path_to_analysis_directory")`
+`setwd("C:/Users/path_to_analysis_directory/rna-seq_workflow/scripts/dge_analysis")`
 
 Then import the required files:
 * Experimental variables dataframe (**colData**):\
-`targets_df = read.csv('../data/conditions_df.csv')`
+`colData_df = read.csv('../../data_files/limma_voom/conditions_df.csv')`
 
 * STAR gene count output results dataframe (**assays**):\
-`assays = read.csv('../data/star_results.csv', row.names=1)`
+`assays_df = read.csv('../../data_files/limma_voom/star_results.csv', row.names=1)`
 
 * Biomart gene annotation file (**rowData**):\
-`annotations_df = read.csv("../data/mm10_biomart_annotated_genes.csv")`
+`rowData_df = read.csv("../../data_files/limma_voom/mm10_biomart_annotated_genes.csv")`
 
 ### 2.2 Creating the DGEList Object:
 N.B.: The **remove.zeros=TRUE** parameter for the DGEList removes all genes for which the expression is zero in all samples. From a biological point of view, genes that are not expressed at a biologically meaningful level in any condition are not of interest and are therefore best ignored. From a statistical point of view, removing low count genes allows the mean-variance relationship in the data to be estimated with greater reliability and also reduces the number of statistical tests that need to be carried out in downstream analyses looking at differential expression.[^1] There were 13902 genes with 0 count in total and it represented 25% of the gene set.
 ```
 # dataframe with factors:
-targets_df <- data.frame(sample_id = targets_df$sample_id, 
-                         subject = substr(targets_df$sample_id, 1, 5), 
-                         treat = targets_df$treatment, 
-                         sex = targets_df$sex, 
-                         roi = targets_df$region
-                         )
+colData_df <- data.frame(sample_id = colData_df$sample_id, 
+                         subject = substr(colData_df$sample_id, 1, 5), 
+                         treat = colData_df$treatment, 
+                         sex = colData_df$sex, 
+                         roi = colData_df$region
+)
 
 
 # Group
-group = factor(targets_df$treat)
+group = factor(colData_df$treat)
 
 # remove.zeros=TRUE gets rid of genes with 0 counts
-dge <- DGEList(counts=star_results_df, group=group, remove.zeros=TRUE)
+dge <- DGEList(counts=assays_df, group=group, remove.zeros=TRUE)
 
 # add factors to DGEList object
-dge$samples$subject <- factor(targets_df$subject)
-dge$samples$treat <- factor(targets_df$treat)
-dge$samples$sex <- factor(targets_df$sex)
-dge$samples$roi <- factor(targets_df$roi)
+dge$samples$subject <- factor(colData_df$subject)
+dge$samples$treat <- factor(colData_df$treat)
+dge$samples$sex <- factor(colData_df$sex)
+dge$samples$roi <- factor(colData_df$roi)
 
 
 # add annotations, same order as in DGE object gene ids:
@@ -87,7 +87,7 @@ It's in this section that we filter the DGEList object as described above, i.e. 
 keep <- dge$genes$gene_biotype == 'protein_coding'
 dge <- dge[keep, ]
 ```
-If we were to filter using the samples metadat **colData**, for instance to only keep Females, the commands would be similar:
+If we were to filter using the samples metadata (**colData**), for instance to only keep Females, the commands would be similar:
 ```
 # Only keep female samples:
 dge <- dge[, which(dge$samples$sex=="F")]
@@ -107,7 +107,16 @@ dge <- dge[keep,, keep.lib.sizes=FALSE]
 About design matrices: *The modelling process requires the use of a design matrix (or model matrix) that has two roles: 1) it defines the form of the model, or structure of the relationship between genes and explanatory variables, and 2) it is used to store values of the explanatory variable(s)(Smyth 2004, 2005; Glonek and Solomon 2004). Although design matrices are fundamental concepts that are covered in many undergraduate mathematics and statistics courses, their specific and multi-disciplinary application to the analysis of genomic data types through the use of the R programming language adds several layers of complexity, both theoretically and in practice.* 
 For more information on the appropriate design matrix set up for differential expression analyses specific to using the limma, refer to [this online guide](https://bioconductor.org/packages/release/workflows/vignettes/RNAseq123/inst/doc/designmatrices.html) by Law et al. (2020) from which the paragraph above is an excerpt.
 
-### 2.4 Normalization
+### 2.4 Background Gene List Generation (Optional)
+
+At this point in the analysis, one can decide to generate a background gene list for later use with pathway analysis tools (see the [Pathway Enrichment Analysis](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/pathway_analysis.html) page for more information).
+
+```
+# Save background genes list to file:
+write.csv(dge$genes, "../../data_files/limma_voom/bg_list.csv", row.names=FALSE)
+```
+
+### 2.5 Normalization
 CPM normalization, which is applied above normalizes the counts, or the number of reads that align to a particular feature after correcting, for sequencing depth and transcriptome composition bias. There is however another most important technical influence on differential expression that is less obvious. Indeed, RNA-Seq provides a measure of the relative abundance of each gene in each RNA sample, but does not provide any measure of the total RNA output on a per-cell basis. This commonly becomes important when a small number of genes are very highly expressed in one sample, but not in another. The highly expressed genes can consume a substantial proportion of the total library size, causing the remaining genes to be under-sampled in that sample. Unless this RNA composition effect is adjusted for, the remaining genes may falsely appear to be down-regulated in that sample.[^3] The [calcNormFactors()](https://www.rdocumentation.org/packages/edgeR/versions/3.14.0/topics/calcNormFactors) function normalizes for RNA composition by finding a set of scaling factors for the library sizes that minimize the log-fold changes between the samples for most genes. The default method for computing these scale factors uses a trimmed mean of M-values (TMM) between each pair of samples.[^4] We call the product of the original library size and the scaling factor the effective library size. The effective library size replaces the original library size in all downstream analyses. TMM is recommended for most RNA-Seq data where the majority (more than half) of the genes are believed not differentially expressed between any pair of the samples, see the [edgeR: differential analysis
 of sequence read count data user's guide](https://www.bioconductor.org/packages/release/bioc/vignettes/edgeR/inst/doc/edgeRUsersGuide.pdf) for more information.[^4] This bioconductor forum [post](https://support.bioconductor.org/p/103282/) can also be informative.
 
@@ -127,7 +136,7 @@ It is important to note that TMM does not change gene expression counts or libra
 new column: (samples$norm.factors) of scaling factors to be automatically used downstream in the analysis
 when applying edgeR or limma functions. For example, edgeR’s [cpm()](https://www.rdocumentation.org/packages/edgeR/versions/3.14.0/topics/cpm) function (this is what is referred to in the edgeR package as model normalization). We can see the effect of the TMM normalization by plotting the log-cpm distributions before and after normalization as in the figure below. The distributions are slightly different pre-normalization and are similar post-normalization.
 
-### 2.5 Unsupervised Clustering with MDS plots
+### 2.6 Unsupervised Clustering with MDS plots
 Similarly to the Principal component analysis (PCA), the multi-dimensional scaling (MDS) plot shows similarities and dissimilarities between samples in an unsupervised manner so that one can visualize how differential expression is behaving in-between different samples before carrying out more formal testing. This is both an analysis and a quality control step to explore the overall differences between the expression profiles of the different samples. Distances on an MDS plot of a DGEList object correspond to leading log-fold-change between each pair of samples. Leading log-fold-change is the root-mean-square average of the largest log2-fold-changes between each pair of samples. The MDS plot is also useful to identify potential sample outliers. The first dimension represents the leading-fold change that best separates samples and explains the largest proportion of variation in the data, with subsequent dimensions having a smaller effect and being orthogonal to the ones before it. Since our experimental design involves multiple factors, we examined each factor over several dimensions. If samples cluster by a given factor in any of these dimensions, it suggests that the factor contributes to expression differences and is worth including in the linear modelling. On the other hand, factors that show little or no effect may be left out of downstream analysis. In this dataset, samples can be seen to cluster well within brain region groups over dimension 1 and 2, and then separate by sex over dimension 5.
 
 ```
@@ -159,11 +168,13 @@ glMDSPlot(dge, labels=dge$samples$group,
           groups=dge$samples[, 4:7], launch=TRUE, html=html_filename)
 ```
 
-### 2.6 Differential Expression Analysis
+### 2.7 Differential Expression Analysis
 #### voom() and voomWithQualityWeights()
 The limma package was initially designed for analyzing intensity data from microarrays. Intensity datasets are essentially continuous numerical experiments, while RNA-seq datasets are a collection of integer counts. The voom()[https://www.rdocumentation.org/packages/limma/versions/3.28.14/topics/voom] method, see the paper[^5] and Chapter 15 in the [documentation](https://bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf), provides the necessary statistical properties for the RNA-seq data to be analyzed using the methodological tools developed for microarrays. RNA-Seq data could be analyzed using statistical theory developed for count data, but the underlying mathematical theory of count distribution is less tractable than that of the normal distribution, and there is a problem related to the error rate control with small sample sizes. That being said, applying normal-based statistical tools to RNA-seq count data is not simple, because the counts have markedly unequal variabilities, even after log-transformation. The voom() method finds it crucial to understand the way in which the variability of RNA-seq read counts depends on the size of the counts and addresses the issue by modeling the mean-variance relationship (see **Figure 4**). In the voom method paper (Law et al., 2014)[^5], two ways of incorporating the mean-variance relationship into the differential expression analysis are explored. The first option, **limma-trend** analysis, is executed by setting the parameter ‘Trend’ to TRUE in the empirical Bayes function (eBayes) and the second one, **limma-voom** by using a precision weight matrix combined with the normalized log-counts. limma-trend applies the mean-variance relationship at the gene level whereas limma-voom applies it at the level of individual observations. Both limma-trend and limma-voom perform almost equally well when the sequencing depths are similar for each RNA sample. When the sequencing depths are too different however, limma-voom is the best performer and the one to be used. It is suggested in the limma documentation to use the limma-trend approach when the ratio of the largest library size to the smallest is not more than about 3-fold. In the case of this analysis, the ratio is 3.2 and using limma-voom is therefore the better option.
 
-RNA-seq experiments are often conducted with samples of variable quality. Instead of removing them from the analysis, the alternate apparoach of using [voomWithQualityWeights()](https://www.rdocumentation.org/packages/limma/versions/3.28.14/topics/voomWithQualityWeights) allows them to still be included by computing and assigning each sample an additional weight measure. See the voomWithQualityWeights() paper[^6] and section 15.6 in the [documentation](https://bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf). More precisely, the voomWithQualityWeights approach analyses RNA-seq experiments by assigning a quality weight to each sample. The sample weights are function of the estimated sample variance derived from a log-linear variance model that includes common sample-specific or group-specific parameters. This approach leads to a more powerful analysis and fewer false discoveries compared to conventional approaches. Below you can find the code required to perform the analysis with both voom() and voomWithQualityWeights(). **N.B.** The latter is commented out and to use it instead of voom(), it's important to comment out the voom() lines instead. An additional source of interesting information on when to use one or the other can be found on these question asked on the [bioconductor](https://support.bioconductor.org/p/129039/) and [biostars](https://www.biostars.org/p/424507/) forums by me.
+RNA-seq experiments are often conducted with samples of variable quality. Instead of removing them from the analysis, the alternate apparoach of using [voomWithQualityWeights()](https://www.rdocumentation.org/packages/limma/versions/3.28.14/topics/voomWithQualityWeights) allows them to still be included by computing and assigning each sample an additional weight measure. See the voomWithQualityWeights() paper[^6] and section 15.6 in the [documentation](https://bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf). More precisely, the voomWithQualityWeights approach analyses RNA-seq experiments by assigning a quality weight to each sample. The sample weights are function of the estimated sample variance derived from a log-linear variance model that includes common sample-specific or group-specific parameters. This approach leads to a more powerful analysis and fewer false discoveries compared to conventional approaches. Below you can find the code required to perform the analysis with both voom() and voomWithQualityWeights().\
+**N.B.** In the code bellow, voomWithQualityWeights() lines are commented out. They can only be used if voom is not used, in that case it's important to comment out the voom() lines instead. An additional source of interesting information on when to use one or the other can be found on these question asked on the [bioconductor](https://support.bioconductor.org/p/129039/) and [biostars](https://www.biostars.org/p/424507/) forums. In this code we also make use of the [duplicateCorrelation()](http://web.mit.edu/~r/current/arch/i386_linux26/lib/R/library/limma/html/dupcor.html) function from the limma package. This one is used after one of the voom functions to account for the correlation present between samples from the same individual. For example in this study, there were three regions of interest studied for each mice, therefore there were three different sample collected from the same mouse. It is important do downweigh the effect of higher correlation associated with these three samples. For more information you can refer to [this question](https://support.bioconductor.org/p/125489/) on the Bioconductor forum.
+
 ```
 Voom and Linear Modeling
 ## Use voom() to convert the read counts to log2-cpm, with associated weights, ready for linear modelling:
@@ -190,7 +201,7 @@ corfit = duplicateCorrelation(v, design, block = dge$samples$subject)
   <figcaption> <b>Figure 4:</b> Mean Variance Trend</figcaption>
 </figure>
 
-### 2.7 Contrasts and Model Fit:
+### 2.8 Contrasts and Model Fit:
 One of the advantages of using limma for RNA-Seq analysis is its ability to accommodate arbitrary experimental complexity. Amongst these features is performing comparisons between groups (log fold-changes), obtained as custom contrasts of the fitted linear models (The [UC Davis Bioinformatics RNA-Seq Workshop from June 2018](https://ucdavis-bioinformatics-training.github.io/2018-June-RNA-Seq-Workshop/thursday/DE.html) contains good information and examples of this). Below is a simple control (SAL) vs. condition (POL) contrast.
 ```
 fit = lmFit(v, design, block = dge$samples$subject, correlation = corfit$consensus)
@@ -203,11 +214,11 @@ cm = makeContrasts(
 
 fit2 = contrasts.fit(fit, cm)
 ```
-### 2.8 eBayes()
+### 2.9 eBayes()
 The empirical Bayes method [ebayes()](https://www.rdocumentation.org/packages/limma/versions/3.28.14/topics/ebayes) assumes a scaled chi-square prior distribution and uses that information to derive posterior values for the variance in the residuals. The moderated t-statistic is computed using that posterior values. The extra information is borrowed from the ensemble of genes for inference about each individual gene. Moderated t-statistics lead to p-values in the same way that ordinary t-statistics do, with the exception of increased degrees of freedom, reflecting the greater reliability associated with the smoothed standard errors. The eBayes function computes one more useful statistic, which is the moderated F-statistic (F). The F statistic combines the t-statistics for all the contrasts into an overall test of significance for that gene. The F-statistic tests whether any of the contrasts are non-zero for that gene, i.e., whether that gene is differentially expressed on any contrast. The denominator degrees of freedom is the same as that of moderated-t. Its p-value is stored as **fit$F.p.value**. It is similar to the ordinary F-statistic from analysis of variance except that the denominator mean squares are moderated across genes. We ran eBayes with the **robust=TRUE** parameter to account for gene-level outliers.\
 `fit3 = eBayes(fit2, robust=TRUE)`
 
-### 2.9 Multiple Testing
+### 2.10 Multiple Testing
 Limma provides two functions to perform hypothesis tests and adjust the p-values for multiple testing; [topTable()](https://www.rdocumentation.org/packages/limma/versions/3.28.14/topics/toptable) and [decideTests()](https://www.rdocumentation.org/packages/limma/versions/3.28.14/topics/decideTests), see the [limma user's guide documentation](https://bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf) for more details. The basic statistical method used for significance analysis is the moderated t-statistic, which is computed for each probe and for each contrast. The moderated t-statistic is similar to the ordinary t-statistic except that the standard errors have been moderated across genes using a simple Bayesian model implemented by the eBayes() method.
 
 #### decideTests()
@@ -220,7 +231,7 @@ dt <- decideTests(fit3, method="separate")
 # To make the output nice:
 kable(t(summary(dt)))
 
-top.table <- topTable(fit3, sort.by = "P", n = Inf, adjust.method="BH")
+top.table <- topTable(fit3, sort.by="P", n=Inf, adjust.method="BH")
 ```
 kable output:
 ```
@@ -229,11 +240,22 @@ kable output:
 |POLvsSAL |  560|  14225| 240|
 ```
 
-### 2.10 Saving to file:
+**N.B.**: The topTable() parameter **sort.by=** is set to **"P"**, as explained in the function's documentation, this sorts the results by p-values and therefore returns a ranked list (see the [Pathway Enrichment Analysis](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/pathway_analysis.html) page for more details on this).
+
+### 2.11 Saving to file:
 If single comparison (from above):\
 `write.csv(top.table, file="../DE_results_folder/POLvsSAL.csv", row.names=F)`
 
+To save a partial ranked list (see above and the [Pathway Enrichment Analysis](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/pathway_analysis.html) page) one can filter the top.table results. Here's an example of two partial output from the results, up-regulated gene and down-regulated genes only, filtered by value being above or below 0.1 logFC and with an adjusted p-value bellow 0.05:
+
+```
+write.csv(top.table[which(top.table$adj.P.Val < 0.05 & top.table$logFC > 0),], file="../../data_files/limma_voom/POLvsSAL_UP_DEGs.csv")
+
+write.csv(top.table[which(top.table$adj.P.Val < 0.05 & top.table$logFC < 0),], file="../../data_files/limma_voom/POLvsSAL_DOWN_DEGs.csv")
+```
+
 In case of multiple comparisons made (See 2.7 Contrasts and Model Fit):
+
 ```
 for (c in colnames(dt)) {
   

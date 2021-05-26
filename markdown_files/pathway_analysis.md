@@ -1,22 +1,26 @@
 # Pathway Enrichment Analysis
 
-Results from modern omics analyses are often made up of long lists of genes, requiring an impractically large amount of manual literature research to interpret. Pathway enrichment analysis helps researchers gain mechanistic insight into these lists by helping identify biological pathways that are more enriched in a gene list than what would be expected by chance.
+Results from modern omics analyses are often made up of long lists of genes, requiring an impractically large amount of manual literature research to interpret. Pathway enrichment analysis helps researchers gain mechanistic insight into these lists by helping to identify biological pathways that are more enriched in a gene list than what would be expected by chance.
 
-Using the 2019 nature protocols paper by Reimand et al. as inspiration, the tutorial will be split in 3 main sections: definition of a gene list from omics data, determination of statistically enriched pathways, and visualization and interpretation of the results.[^1] Note that these principles can be applied to diverse types of omics data.
+Using the 2019 nature protocols paper by Reimand et al. as inspiration, this tutorial will be split in 4 main sections: definition of a gene list from omics data, determination of statistically enriched pathways, visualization and interpretation of the results and gene overlap testing.[^1] Note that these principles can be applied to diverse types of omics data.
 
-In this tutorial we will be presenting 4 different tools. 3 for conducting alternative methods of pathway enrichment analysis and on for visualization. These tools, at the time of this being written, would be the go-to, recommended ones to use. [g:Profiler](https://biit.cs.ut.ee/gprofiler/gost) and [Enrichr](https://maayanlab.cloud/Enrichr/) to perform gene enrichment analysis, [GSEA](http://www.gsea-msigdb.org/gsea/index.jsp) (Gene-set enrichment analysis) and [Cytoscape](https://cytoscape.org/) for visualizing the results.
+In this tutorial we will be presenting five different tools. Three for conducting alternative methods of pathway enrichment analysis, one for visualization and network exploration and lastly, one for the testing of overlap between two gene lists. At the time of this being written, these tools are the state-of-the-art, go-to, recommended ones to use for their respective analysis method.\
+[g:Profiler](https://biit.cs.ut.ee/gprofiler/gost) and [Enrichr](https://maayanlab.cloud/Enrichr/) to perform gene enrichment analysis.\
+[GSEA](http://www.gsea-msigdb.org/gsea/index.jsp) (Gene-set enrichment analysis).\
+[Cytoscape](https://cytoscape.org/) for visualizing the results.
+[GeneOverlap](https://bioconductor.org/packages/release/bioc/html/GeneOverlap.html) for testing and visualizing overlaps in gene lists.
 
 ## 1. Definition of a gene list
-Gene pathway analysis can be applicable to the analysis of lists of genes or biomolecules from any organism derived from large-scale data, including proteomics, genomics, epigenomics and gene-regulation studies, they can come from gene expression microarrays, quantitative proteomics, germline and somatic genome sequencing and global DNA methylation assays amongst others. They usually contain the features (genes) as rows and metadata specific to the experiment that generated it. For DEG analysis there are usually two kinds of gene lists, ranked and unranked. The difference is trivial, an unranked list can be any output list of biological features. The ranked list is ordered based on a specific parameter, for DEG results this is often the FDR-adjusted p-value or the FC (fold change) sign (+ or -)*-log10(p-value), it could also be by the fold change sign only amongst many others. For an example of this ouput see the ___ result file from the STAR comparison described in the [Differential Gene Expression Analysis](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/DGE_analysis.html) tutorial page.
+Gene pathway analysis can be applicable to the analysis of lists of genes or biomolecules from any organism derived from large-scale data, including proteomics, genomics, epigenomics and gene-regulation studies, these data can come from gene expression microarrays, quantitative proteomics, germline and somatic genome sequencing and global DNA methylation assays amongst others. They usually contain the features (genes) as rows and metadata specific to the experiment that generated it as columns, they can be any output list of biological features. For DEG analysis there are usually two kinds of gene lists; **ranked** and **unranked**. The difference is trivial, an unranked list is ordered based on a specific parameter, for DEG results this is often the FDR-adjusted p-value or the FC (fold change) sign (+ or -)*-log10(p-value), sometimes this can be the fold change sign only. For an example of this output see the [POLvsSAL.csv](https://github.com/ludmercentre/rna-seq_workflow/blob/master/data_files/limma_voom/POLvsSAL.csv) result file from the STAR comparison described on the [Differential Gene Expression Analysis](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/DGE_analysis.html) tutorial page.
 
 Examples of unranked lists:
 All somatically mutated genes in a tumor identified by exome sequencing, or all proteins that interact with a bait in a proteomics experiment.
 
 Examples of ranked list:
-Ouput list of genes ranked y p-value of the significance of differential expression, Q-value (a.k.a. adjusted p-value, corrected for multiple testing across all genes), effect size and direction of expression change (upregulated genes are positive and at the top of the list and downregulated genes are negative and at the bottom of the list, often expressed as log-transformed fold-change (logFC). 
+Output list of genes ranked by p-value of the significance of differential expression, Q-value (a.k.a. adjusted p-value, corrected for multiple testing across all genes), effect size and direction of expression change (upregulated genes are positive and at the top of the list and downregulated genes are negative and at the bottom of the list, often expressed as log-transformed fold-change (logFC). 
 (e.g., −log10 p-value multiplied by the sign of logFC)
 
-**N.B.:** Lists can also be **partial**, i.e., containing only outputs filtered by a particular threshold (e.g., FDR-adjusted P value <0.05 and fold-change >2).
+**N.B.:** Lists can also be **partial**, i.e., containing only outputs filtered by a particular threshold (e.g., FDR-adjusted P value <0.05 and fold-change >2). For an example of this, see the [POLvsSAL_UP_DEGs.csv](https://github.com/ludmercentre/rna-seq_workflow/blob/master/data_files/limma_voom/POLvsSAL_UP_DEGs.csv) and [POLvsSAL_DOWN_DEGs.csv](https://github.com/ludmercentre/rna-seq_workflow/blob/master/data_files/limma_voom/POLvsSAL_DOWN_DEGs.csv), gene lists. These were filtered 
 
 ## 2. Determination of statistically enriched pathways
 The statistical detection of pathways or other groups of genes showing an over-representation in the gene list of interest in contrast to what would be expected by chance. Usually performed using Gene Ontology (GO) (biological processes, cellular components and molecular functions) terms or annotations from other databases (e.g., KEGG (everything), Reactome (pathways), TRANSFAC (transcription factors), etc.)
@@ -51,19 +55,17 @@ Pathway information is inherently redundant, as genes often participate in multi
 
 Cytoscape's main [website](https://cytoscape.org/).
 
+## 4. Gene Overlap Testing
+Testing gene overlap can reveal important biological meaning and lead to novel hypothesis. Simply put, it consists in identifying how similar the contents of two lists of genes are. This problem can be formulated as a hypergeometric distribution or a contigency table (which can be solved by Fisher’s exact test). In the case of this study, for example, some of our results were compared to those identified by human post-mortem studies in the HIP of individuals with schizophrenia.[^4] Li Shen has crafted an excellent R package to perform this analysis nas visualize it's results called [GeneOverlap](https://bioconductor.org/packages/release/bioc/html/GeneOverlap.html).
 
+<br />
 
 All in all, The advantages of using pathway analysis are that it improves statistical power in two ways; by aggregates counts of all the genes and genomic regions involved in a given cell mechanism, providing a higher number of counts, which makes statistical analyses more reliable and by reducing the dimensionality from tens of thousands of genes or millions of genomic regions (e.g., SNPs) to a much smaller number of “systems” or “pathways”.[^1]
 It also simplifies results as the analysis is phrased at the level of familiar concepts such as “cell cycle”. Better for publishing and can help identify potential causal mechanisms and drug targets. Or other types of experiment planning (e.g., identification of novel pathways). It also makes comparing results obtained from related, but different data easier and facilitates integration of diverse data types, such as genomics, transcriptomics and proteomics, which can all be mapped to the same pathways.
 
-Far from being a perfect technique and still constently undergoing improvements it does come with it's limitations such as a bias towards pathways in which multiple genes have strong biological signals. Pathways in which activity is controlled by only a few genes or not controlled by gene expression (e.g., by post-translational regulation) will never be observed as enriched. Pathway boundaries tend to be arbitrary, and different databases will disagree about which genes are involved in a given pathway. (Benefits of using multiple databases)
+Far from being a perfect technique and still consistently undergoing improvements it does come with it's limitations such as a bias towards pathways in which multiple genes have strong biological signals. Pathways in which activity is controlled by only a few genes or not controlled by gene expression (e.g., by post-translational regulation) will never be observed as enriched. Pathway boundaries tend to be arbitrary, and different databases will disagree about which genes are involved in a given pathway. (Benefits of using multiple databases)
 Statistical bias toward larger pathways. Multi-functional genes that are highly ranked in the gene list may lead to enrichment of many different pathways, some of which are not relevant to the experiment. Biased toward well-known pathways. Pathway enrichment analysis ignores genes with no pathway annotations, the “dark matter of the genome”.
 Most enrichment analysis methods make unrealistic assumptions of statistical independence among genes as well as pathways. Some genes may always be co-expressed and some pathways have genes in common. 
-
-
-
-
-
 
 <br />
 
@@ -72,3 +74,4 @@ Most enrichment analysis methods make unrealistic assumptions of statistical ind
 [^1]: Reimand, J., Isserlin, R., Voisin, V., Kucera, M., Tannus-Lopes, C., Rostamianfar, A., ... & Bader, G. D. (2019). Pathway enrichment analysis and visualization of omics data using g: Profiler, GSEA, Cytoscape and EnrichmentMap. Nature protocols, 14(2), 482-517.
 [^2]: Xie, Z., Bailey, A., Kuleshov, M. V., Clarke, D. J., Evangelista, J. E., Jenkins, S. L., ... & Ma'ayan, A. (2021). Gene Set Knowledge Discovery with Enrichr. Current Protocols, 1(3), e90.
 [^3]: Raudvere, U., Kolberg, L., Kuzmin, I., Arak, T., Adler, P., Peterson, H., & Vilo, J. (2019). g: Profiler: a web server for functional enrichment analysis and conversions of gene lists (2019 update). Nucleic acids research, 47(W1), W191-W198.
+[^4]: Guma, E., do Couto Bordignon, P., Devenyi, G. A., Gallino, D., Anastassiadis, C., Cvetkovska, V., ... & Chakravarty, M. M. (2021). Early or late gestational exposure to maternal immune activation alters neurodevelopmental trajectories in mice: an integrated neuroimaging, behavioural, and transcriptional study. Biological Psychiatry.
