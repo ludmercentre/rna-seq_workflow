@@ -109,7 +109,7 @@ For more information on the appropriate design matrix set up for differential ex
 
 ### 2.4 Background Gene List Generation (Optional)
 
-At this point in the analysis, one can decide to generate a background gene list for later use with pathway analysis tools (see the [Pathway Enrichment Analysis](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/pathway_analysis.html) page for more information).
+At this point in the analysis, one can decide to generate a background gene list for later use with pathway analysis tools (see the [Pathway Enrichment Analysis](https://ludmercentre.github.io/rna-seq_workflow/markdown_files/pathway_analysis.html) page for more information). The goal of a background list is to not use the entire “universe” i.e., all genes in the organism, to check for significant enrichment whilst performing pathway enrichment analysis. Instead, only using the genes that are relevant in the data for the comparison we’re making. For the M vs. F comparison in the ACC for instance, the only genes relevant are the ones that passed the filtering thresholds (first removing all genes with 0 expression, i.e., keeping only the genes expressed in that particular brain region, then only keeping the protein coding genes and those having passed a minimum expression value, calculated with the filterByExpr() function). The aim being to allow a more precise evaluation of functional enrichment.
 
 ```
 # Save background genes list to file:
